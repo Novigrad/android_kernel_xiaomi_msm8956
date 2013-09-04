@@ -99,19 +99,6 @@ struct kmem_cache {
 };
 
 /**
- * Calling this on allocated memory will check that the memory
- * is expected to be in use, and print warnings if not.
- */
-#ifdef CONFIG_SLUB_DEBUG
-extern bool verify_mem_not_deleted(const void *x);
-#else
-static inline bool verify_mem_not_deleted(const void *x)
-{
-	return true;
-}
-#endif
-
-/**
  * virt_to_obj - returns address of the beginning of object.
  * @s: object's kmem_cache
  * @slab_page: address of slab page
