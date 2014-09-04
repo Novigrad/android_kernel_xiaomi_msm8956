@@ -13,8 +13,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
  *
  * Copyright IBM Corporation, 2008
  *
@@ -88,6 +88,14 @@ struct rcu_dynticks {
 				    /* Process level is worth LLONG_MAX/2. */
 	int dynticks_nmi_nesting;   /* Track NMI nesting level. */
 	atomic_t dynticks;	    /* Even value for idle, else odd. */
+#ifdef CONFIG_NO_HZ_FULL_SYSIDLE
+	long long dynticks_idle_nesting;
+				    /* irq/process nesting level from idle. */
+	atomic_t dynticks_idle;	    /* Even value for idle, else odd. */
+				    /*  "Idle" excludes userspace execution. */
+	unsigned long dynticks_idle_jiffies;
+				    /* End of last non-NMI non-idle period. */
+#endif /* #ifdef CONFIG_NO_HZ_FULL_SYSIDLE */
 #ifdef CONFIG_RCU_FAST_NO_HZ
 	bool all_lazy;		    /* Are all CPU's CBs lazy? */
 	unsigned long nonlazy_posted;
@@ -96,8 +104,6 @@ struct rcu_dynticks {
 				    /* idle-period nonlazy_posted snapshot. */
 	unsigned long last_accelerate;
 				    /* Last jiffy CBs were accelerated. */
-	unsigned long last_advance_all;
-				    /* Last jiffy CBs were all advanced. */
 	int tick_nohz_enabled_snap; /* Previously seen value from sysfs. */
 #endif /* #ifdef CONFIG_RCU_FAST_NO_HZ */
 };
@@ -164,6 +170,14 @@ struct rcu_node {
 				/*  queued on this rcu_node structure that */
 				/*  are blocking the current grace period, */
 				/*  there can be no such task. */
+	struct completion boost_completion;
+				/* Used to ensure that the rt_mutex used */
+				/*  to carry out the boosting is fully */
+				/*  released with no future boostee accesses */
+				/*  before that rt_mutex is re-initialized. */
+	struct rt_mutex boost_mtx;
+				/* Used only for the priority-boosting */
+				/*  side effect, not as a lock. */
 	unsigned long boost_time;
 				/* When to start boosting (jiffies). */
 	struct task_struct *boost_kthread_task;
@@ -244,7 +258,6 @@ struct rcu_data {
 	bool		passed_quiesce;	/* User-mode/idle loop etc. */
 	bool		qs_pending;	/* Core waits for quiesc state. */
 	bool		beenonline;	/* CPU online at least once. */
-	bool		preemptible;	/* Preemptible RCU? */
 	struct rcu_node *mynode;	/* This CPU's leaf of hierarchy */
 	unsigned long grpmask;		/* Mask to apply to leaf qsmask. */
 #ifdef CONFIG_RCU_CPU_STALL_INFO
@@ -442,13 +455,14 @@ struct rcu_state {
 						/*  activity in jiffies. */
 	unsigned long jiffies_stall;		/* Time at which to check */
 						/*  for CPU stalls. */
-	unsigned long n_force_qs_gpstart;	/* Snapshot of n_force_qs at */
-						/*  GP start. */
+	unsigned long jiffies_resched;		/* Time at which to resched */
+						/*  a reluctant CPU. */
 	unsigned long gp_max;			/* Maximum GP duration in */
 						/*  jiffies. */
-	char *name;				/* Name of structure. */
+	const char *name;			/* Name of structure. */
 	char abbr;				/* Abbreviated name. */
 	struct list_head flavors;		/* List of RCU flavors. */
+	struct irq_work wakeup_work;		/* Postponed wakeups */
 };
 
 /* Values for rcu_state structure's gp_flags field. */
@@ -524,6 +538,7 @@ static void rcu_preempt_do_callbacks(void);
 static int rcu_spawn_one_boost_kthread(struct rcu_state *rsp,
 						 struct rcu_node *rnp);
 #endif /* #ifdef CONFIG_RCU_BOOST */
+static void __init rcu_spawn_boost_kthreads(void);
 static void rcu_prepare_kthreads(int cpu);
 static void rcu_cleanup_after_idle(int cpu);
 static void rcu_prepare_for_idle(int cpu);
@@ -544,7 +559,17 @@ static void rcu_boot_init_nocb_percpu_data(struct rcu_data *rdp);
 static void rcu_spawn_nocb_kthreads(struct rcu_state *rsp);
 static void rcu_kick_nohz_cpu(int cpu);
 static bool init_nocb_callback_list(struct rcu_data *rdp);
+static void rcu_sysidle_enter(struct rcu_dynticks *rdtp, int irq);
+static void rcu_sysidle_exit(struct rcu_dynticks *rdtp, int irq);
+static void rcu_sysidle_check_cpu(struct rcu_data *rdp, bool *isidle,
+				  unsigned long *maxj);
+static bool is_sysidle_rcu_state(struct rcu_state *rsp);
+static void rcu_sysidle_report_gp(struct rcu_state *rsp, int isidle,
+				  unsigned long maxj);
 static void rcu_bind_gp_kthread(void);
+static void rcu_sysidle_init_percpu_data(struct rcu_dynticks *rdtp);
+static bool rcu_nohz_full_cpu(struct rcu_state *rsp);
+
 #endif /* #ifndef RCU_TREE_NONCORE */
 
 #ifdef CONFIG_RCU_TRACE

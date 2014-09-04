@@ -14,8 +14,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright (c) 2010 Linaro
  *
@@ -36,7 +36,7 @@ struct rcu_ctrlblk {
 	RCU_TRACE(unsigned long gp_start); /* Start time for stalls. */
 	RCU_TRACE(unsigned long ticks_this_gp); /* Statistic for stalls. */
 	RCU_TRACE(unsigned long jiffies_stall); /* Jiffies at next stall. */
-	RCU_TRACE(const char *name);	/* Name of RCU type. */
+	RCU_TRACE(char *name);		/* Name of RCU type. */
 };
 
 /* Definition for rcupdate control block. */
@@ -102,67 +102,6 @@ static void check_cpu_stalls(void)
 	RCU_TRACE(check_cpu_stall_preempt());
 }
 
-#ifdef CONFIG_RCU_TRACE
-
-/*
- * Because preemptible RCU does not exist, it is not necessary to
- * dump out its statistics.
- */
-static void show_tiny_preempt_stats(struct seq_file *m)
-{
-}
-
-#endif /* #ifdef CONFIG_RCU_TRACE */
-
-/*
- * Because preemptible RCU does not exist, it never has any callbacks
- * to remove.
- */
-static void rcu_preempt_remove_callbacks(struct rcu_ctrlblk *rcp)
-{
-}
-
-/*
- * Because preemptible RCU does not exist, it never has any callbacks
- * to process.
- */
-static void rcu_preempt_process_callbacks(void)
-{
-}
-
-/* Hold off callback invocation until early_initcall() time. */
-static int rcu_scheduler_fully_active __read_mostly;
-
-/*
- * Start up softirq processing of callbacks.
- */
-void invoke_rcu_callbacks(void)
-{
-	if (rcu_scheduler_fully_active)
-		raise_softirq(RCU_SOFTIRQ);
-}
-
-#ifdef CONFIG_RCU_TRACE
-
-/*
- * There is no callback kthread, so this thread is never it.
- */
-static bool rcu_is_callbacks_kthread(void)
-{
-	return false;
-}
-
-#endif /* #ifdef CONFIG_RCU_TRACE */
-
-static int __init rcu_scheduler_really_started(void)
-{
-	rcu_scheduler_fully_active = 1;
-	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks);
-	raise_softirq(RCU_SOFTIRQ);  /* Invoke any callbacks from early boot. */
-	return 0;
-}
-early_initcall(rcu_scheduler_really_started);
-
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 #include <linux/kernel_stat.h>
 
@@ -194,7 +133,6 @@ static void rcu_trace_sub_qlen(struct rcu_ctrlblk *rcp, int n)
  */
 static int show_tiny_stats(struct seq_file *m, void *unused)
 {
-	show_tiny_preempt_stats(m);
 	seq_printf(m, "rcu_sched: qlen: %ld\n", rcu_sched_ctrlblk.qlen);
 	seq_printf(m, "rcu_bh: qlen: %ld\n", rcu_bh_ctrlblk.qlen);
 	return 0;
