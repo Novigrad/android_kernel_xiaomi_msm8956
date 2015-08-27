@@ -46,6 +46,7 @@
 #include <linux/cpuset.h>
 #include <linux/show_mem_notifier.h>
 #include <linux/vmpressure.h>
+#include <linux/zcache.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/almk.h>
@@ -386,7 +387,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	short selected_oom_score_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free;
-	int other_file;
+	int other_file = zcache_pages() -
 	unsigned long nr_to_scan = sc->nr_to_scan;
 
 	if (nr_to_scan > 0) {
@@ -500,6 +501,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
+				"   Total zcache is %ldkB\n" \
 				"   Free memory is %ldkB above reserved.\n" \
 				"   Free CMA is %ldkB\n" \
 				"   Total reserve is %ldkB\n" \
@@ -515,6 +517,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     current->comm, current->pid,
 			     cache_size, cache_limit,
 			     min_score_adj,
+			     (long)zcache_pages() * (long)(PAGE_SIZE / 1024),
 			     free ,
 			     global_page_state(NR_FREE_CMA_PAGES) *
 				(long)(PAGE_SIZE / 1024),
@@ -673,4 +676,3 @@ module_init(lowmem_init);
 module_exit(lowmem_exit);
 
 MODULE_LICENSE("GPL");
-
