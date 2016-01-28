@@ -689,6 +689,7 @@ zero:
 		zcache_store_failed++;
 		if (!zero)
 			zbud_free(zpool->pool, zaddr);
+		return;
 	}
 
 	/* update stats */
