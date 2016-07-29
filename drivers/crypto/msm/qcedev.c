@@ -43,6 +43,10 @@
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
 
+#ifndef U32_MAX
+#define U32_MAX ((u32)(~0U))
+#endif
+
 #ifndef CONFIG_FIPS_ENABLE
 #ifndef CONFIG_HW_RANDOM_MSM
 /* Global FIPS status  */
