@@ -11,7 +11,7 @@
 #include <linux/miscdevice.h>
 
 #define SOUND_CONTROL_MAJOR_VERSION 3
-#define SOUND_CONTROL_MINOR_VERSION 1
+#define SOUND_CONTROL_MINOR_VERSION 2
 
 extern void update_headphones_volume_boost(int vol_boost);
 extern void update_speaker_gain(int vol_boost);
