@@ -54,3 +54,5 @@ install:
 zinstall:
 	$(CONFIG_SHELL) $(srctree)/$(src)/install.sh $(KERNELRELEASE) \
 	$(obj)/Image.gz System.map "$(INSTALL_PATH)"
+
+clean-files := Image Image-dtb Image.gz Image.gz-dtb
