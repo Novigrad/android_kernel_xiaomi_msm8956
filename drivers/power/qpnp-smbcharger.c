@@ -41,7 +41,6 @@
 #include <linux/thermal.h>
 #include "pmic-voter.h"
 
-int FG_charger_status = 0;
 
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
@@ -256,6 +255,7 @@ struct smbchg_chip {
 	struct work_struct		usb_set_online_work;
 	struct delayed_work		vfloat_adjust_work;
 	struct delayed_work		hvdcp_det_work;
+	struct delayed_work		redetect_work;
 	spinlock_t			sec_access_lock;
 	struct mutex			therm_lvl_lock;
 	struct mutex			usb_set_online_lock;
@@ -417,7 +417,7 @@ module_param_named(
 	int, S_IRUSR | S_IWUSR
 );
 
-static int smbchg_default_dcp_icl_ma = 1800;
+static int smbchg_default_dcp_icl_ma = 2400;
 module_param_named(
 	default_dcp_icl_ma, smbchg_default_dcp_icl_ma,
 	int, S_IRUSR | S_IWUSR
@@ -1674,7 +1674,7 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 			}
 			chip->usb_max_current_ma = 500;
 		}
-		if ((current_ma == CURRENT_500_MA) || (current_ma == CURRENT_900_MA)) {	// Fast charge for USB
+		if ((current_ma == CURRENT_500_MA) || (current_ma == CURRENT_900_MA)) {	// AP: Fast charge for USB
 			rc = smbchg_sec_masked_write(chip,
 					chip->usb_chgpth_base + CHGPTH_CFG,
 					CFG_USB_2_3_SEL_BIT, CFG_USB_3);
@@ -1802,7 +1802,7 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 #define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
 #define DCIN_ACTIVE_PWR_SRC_BIT		BIT(0)
 #define PARALLEL_REENABLE_TIMER_MS	1000
-#define PARALLEL_CHG_THRESHOLD_CURRENT	1800
+#define PARALLEL_CHG_THRESHOLD_CURRENT	2400
 static bool smbchg_is_usbin_active_pwr_src(struct smbchg_chip *chip)
 {
 	int rc;
@@ -4182,9 +4182,8 @@ reschedule:
 static int smbchg_charging_status_change(struct smbchg_chip *chip)
 {
 	smbchg_vfloat_adjust_check(chip);
-	FG_charger_status = get_prop_batt_status(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
-			FG_charger_status);
+			get_prop_batt_status(chip));
 	return 0;
 }
 
@@ -4638,9 +4637,8 @@ void update_usb_status(struct smbchg_chip *chip, bool usb_present, bool force)
 	}
 
 	/* update FG */
-	FG_charger_status = get_prop_batt_status(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
-			FG_charger_status);
+			get_prop_batt_status(chip));
 unlock:
 	mutex_unlock(&chip->usb_status_lock);
 }
@@ -5206,17 +5204,6 @@ static int rerun_apsd(struct smbchg_chip *chip)
 
 	return rc;
 }
-
-/*static void smbchg_reg_work(struct work_struct *work)
-{
-	struct smbchg_chip *chip = container_of(work,
-				struct smbchg_chip,
-				reg_work.work);
-	int rc;
-	rc = rerun_apsd(chip);
-	if (rc)
-		pr_err("rerun_apsd error,exit\n");
-}*/
 
 #define SCHG_LITE_USBIN_HVDCP_5_9V		0x8
 #define SCHG_LITE_USBIN_HVDCP_5_9V_SEL_MASK	0x38
@@ -6679,9 +6666,8 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 		pr_smb(PR_STATUS, "OTG detected\n");
 
 	/* update FG */
-	FG_charger_status = get_prop_batt_status(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
-			FG_charger_status);
+			get_prop_batt_status(chip));
 
 	return IRQ_HANDLED;
 }
@@ -8024,7 +8010,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->parallel_en_work,
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
-	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smbchg_hvdcp_det_work);
+	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smbchg_hvdcp_det_work);	
 	init_completion(&chip->src_det_lowered);
 	init_completion(&chip->src_det_raised);
 	init_completion(&chip->usbin_uv_lowered);
