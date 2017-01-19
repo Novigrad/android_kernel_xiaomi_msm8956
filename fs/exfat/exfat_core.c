@@ -3127,7 +3127,7 @@ void update_dir_checksum_with_entry_set(struct super_block *sb, ENTRY_SET_CACHE_
 
 	ep = (DENTRY_T *)&(es->__buf);
 	for (i = 0; i < es->num_entries; i++) {
-		DPRINTK("update_dir_checksum_with_entry_set ep %p\n", ep);
+		DPRINTK("update_dir_checksum_with_entry_set ep %pK\n", ep);
 		chksum = calc_checksum_2byte((void *) ep, DENTRY_SIZE, chksum, chksum_type);
 		ep++;
 		chksum_type = CS_DEFAULT;
@@ -3380,7 +3380,7 @@ ENTRY_SET_CACHE_T *get_entry_set_in_dir(struct super_block *sb, CHAIN_T *p_dir, 
 	DPRINTK("get_entry_set_in_dir exited %p\n", es);
 	return es;
 err_out:
-	DPRINTK("get_entry_set_in_dir exited NULL (es %p)\n", es);
+	DPRINTK("get_entry_set_in_dir exited NULL (es %pK)\n", es);
 	if (es)
 		kfree(es);
 	return NULL;
@@ -3388,7 +3388,7 @@ err_out:
 
 void release_entry_set(ENTRY_SET_CACHE_T *es)
 {
-	DPRINTK("release_entry_set %p\n", es);
+	DPRINTK("release_entry_set %pK\n", es);
 	if (es)
 		kfree(es);
 }

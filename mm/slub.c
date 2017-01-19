@@ -681,7 +681,7 @@ static void restore_bytes(struct kmem_cache *s, char *message, u8 data,
 						void *from, void *to)
 {
 	slab_panic("object poison overwritten");
-	slab_fix(s, "Restoring 0x%p-0x%p=0x%x\n", from, to - 1, data);
+	slab_fix(s, "Restoring 0x%pK-0x%pK=0x%x\n", from, to - 1, data);
 	memset(from, data, to - from);
 }
 
@@ -791,7 +791,7 @@ static int slab_pad_check(struct kmem_cache *s, struct page *page)
 	while (end > fault && end[-1] == POISON_INUSE)
 		end--;
 
-	slab_err(s, page, "Padding overwritten. 0x%p-0x%p", fault, end - 1);
+	slab_err(s, page, "Padding overwritten. 0x%pK-0x%pK", fault, end - 1);
 	print_section("Padding ", end - remainder, remainder);
 
 	restore_bytes(s, "slab padding", POISON_INUSE, end - remainder, end);
@@ -1066,7 +1066,7 @@ static noinline struct kmem_cache_node *free_debug_processing(
 		goto fail;
 
 	if (!check_valid_pointer(s, page, object)) {
-		slab_err(s, page, "Invalid object pointer 0x%p", object);
+		slab_err(s, page, "Invalid object pointer 0x%pK", object);
 		goto fail;
 	}
 
@@ -1080,7 +1080,7 @@ static noinline struct kmem_cache_node *free_debug_processing(
 
 	if (unlikely(s != page->slab_cache)) {
 		if (!PageSlab(page)) {
-			slab_err(s, page, "Attempt to free object(0x%p) "
+			slab_err(s, page, "Attempt to free object(0x%pK) "
 				"outside of slab", object);
 		} else if (!page->slab_cache) {
 			pr_err("SLUB <none>: no slab for object 0x%p.\n",
@@ -1107,7 +1107,7 @@ out:
 fail:
 	slab_unlock(page);
 	spin_unlock_irqrestore(&n->list_lock, *flags);
-	slab_fix(s, "Object at 0x%p not freed", object);
+	slab_fix(s, "Object at 0x%pK not freed", object);
 	return NULL;
 }
 
@@ -5389,3 +5389,4 @@ ssize_t slabinfo_write(struct file *file, const char __user *buffer,
 	return -EIO;
 }
 #endif /* CONFIG_SLABINFO */
+
