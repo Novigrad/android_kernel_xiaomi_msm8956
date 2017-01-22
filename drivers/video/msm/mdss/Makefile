@@ -59,4 +59,4 @@ obj-$(CONFIG_COMPAT) += mdss_compat_utils.o
 obj-$(CONFIG_FB_MSM_MDSS_KCAL_CTRL) += mdss_mdp_kcal_ctrl.o
 
 obj-$(CONFIG_FB_MSM_MDSS) += lcd_notify.o
-obj-$(CONFIG_FB_MSM_MDSS) += state_notifier.o
+obj-$(CONFIG_STATE_NOTIFIER) += state_notifier.o
