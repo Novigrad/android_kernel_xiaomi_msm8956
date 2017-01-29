@@ -14,11 +14,11 @@
 
 #include <linux/slab.h>
 #include "cpufreq_governor.h"
-#include <linux/state_notifier.h>
+#include <linux/display_state.h>
 
 /* Chill version macros */
 #define CHILL_VERSION_MAJOR			(2)
-#define CHILL_VERSION_MINOR			(9)
+#define CHILL_VERSION_MINOR			(8)
 
 /* Chill governor macros */
 #define DEF_FREQUENCY_UP_THRESHOLD		(85)
@@ -62,7 +62,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
 
 	/* Create display state boolean */
-	bool display_on = !state_suspended;;
+	bool display_on = is_display_on();
 
 	/* Once min frequency is reached while screen off, stop taking load samples*/
 	if (!display_on && policy->cur == policy->min)
