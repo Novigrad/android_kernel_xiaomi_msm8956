@@ -20,7 +20,6 @@
 #include <linux/proc_fs.h>
 #include <linux/notifier.h>
 #include <linux/seq_file.h>
-#include <linux/kasan.h>
 #include <linux/kmemcheck.h>
 #include <linux/cpu.h>
 #include <linux/cpuset.h>
@@ -472,30 +471,12 @@ static char *slub_debug_slabs;
 static int disable_higher_order_debug;
 
 /*
- * slub is about to manipulate internal object metadata.  This memory lies
- * outside the range of the allocated object, so accessing it would normally
- * be reported by kasan as a bounds error.  metadata_access_enable() is used
- * to tell kasan that these accesses are OK.
- */
-static inline void metadata_access_enable(void)
-{
-	kasan_disable_current();
-}
-
-static inline void metadata_access_disable(void)
-{
-	kasan_enable_current();
-}
-
-/*
  * Object debugging
  */
 static void print_section(char *text, u8 *addr, unsigned int length)
 {
-	metadata_access_enable();
 	print_hex_dump(KERN_ERR, text, DUMP_PREFIX_ADDRESS, 16, 1, addr,
 			length, 1);
-	metadata_access_disable();
 }
 
 static struct track *get_track(struct kmem_cache *s, void *object,
@@ -525,9 +506,7 @@ static void set_track(struct kmem_cache *s, void *object,
 		trace.max_entries = TRACK_ADDRS_COUNT;
 		trace.entries = p->addrs;
 		trace.skip = 3;
-		metadata_access_enable();
 		save_stack_trace(&trace);
-		metadata_access_disable();
 
 		/* See rant in lockdep.c */
 		if (trace.nr_entries != 0 &&
@@ -662,7 +641,7 @@ static void slab_panic(const char *cause)
 static inline void slab_panic(const char *cause) {}
 #endif
 
-void object_err(struct kmem_cache *s, struct page *page,
+static void object_err(struct kmem_cache *s, struct page *page,
 			u8 *object, char *reason)
 {
 	slab_bug(s, "%s", reason);
@@ -713,9 +692,7 @@ static int check_bytes_and_report(struct kmem_cache *s, struct page *page,
 	u8 *fault;
 	u8 *end;
 
-	metadata_access_enable();
 	fault = memchr_inv(start, value, bytes);
-	metadata_access_disable();
 	if (!fault)
 		return 1;
 
@@ -808,9 +785,7 @@ static int slab_pad_check(struct kmem_cache *s, struct page *page)
 	if (!remainder)
 		return 1;
 
-	metadata_access_enable();
 	fault = memchr_inv(end - remainder, POISON_INUSE, remainder);
-	metadata_access_disable();
 	if (!fault)
 		return 1;
 	while (end > fault && end[-1] == POISON_INUSE)
@@ -1398,11 +1373,8 @@ static void setup_object(struct kmem_cache *s, struct page *page,
 				void *object)
 {
 	setup_object_debug(s, page, object);
-	if (unlikely(s->ctor)) {
-		kasan_unpoison_object_data(s, object);
+	if (unlikely(s->ctor))
 		s->ctor(object);
-		kasan_poison_object_data(s, object);
-	}
 }
 
 static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
@@ -2526,7 +2498,6 @@ void *kmem_cache_alloc_trace(struct kmem_cache *s, gfp_t gfpflags, size_t size)
 {
 	void *ret = slab_alloc(s, gfpflags, _RET_IP_);
 	trace_kmalloc(_RET_IP_, ret, size, s->size, gfpflags);
-	kasan_kmalloc(s, ret, size);
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_trace);
@@ -2553,8 +2524,6 @@ void *kmem_cache_alloc_node_trace(struct kmem_cache *s,
 
 	trace_kmalloc_node(_RET_IP_, ret,
 			   size, s->size, gfpflags, node);
-
-	kasan_kmalloc(s, ret, size);
 	return ret;
 }
 EXPORT_SYMBOL(kmem_cache_alloc_node_trace);
@@ -2742,26 +2711,16 @@ void kmem_cache_free(struct kmem_cache *s, void *x)
 }
 EXPORT_SYMBOL(kmem_cache_free);
 
-void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
-{
-	__kmem_cache_free_bulk(s, size, p);
-}
-EXPORT_SYMBOL(kmem_cache_free_bulk);
-
-bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
-								void **p)
-{
-	return __kmem_cache_alloc_bulk(s, flags, size, p);
-}
-EXPORT_SYMBOL(kmem_cache_alloc_bulk);
-
-
 /* Note that interrupts must be enabled when calling this function. */
 void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
 {
 	struct kmem_cache_cpu *c;
 	struct page *page;
 	int i;
+
+	/* Debugging fallback to generic bulk */
+	if (kmem_cache_debug(s))
+		return __kmem_cache_free_bulk(s, size, p);
 
 	local_irq_disable();
 	c = this_cpu_ptr(s->cpu_slab);
@@ -2770,13 +2729,8 @@ void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
 		void *object = p[i];
 
 		BUG_ON(!object);
-		/* kmem cache debug support */
-		s = cache_from_obj(s, object);
-		if (unlikely(!s))
-			goto exit;
-		slab_free_hook(s, object);
-
 		page = virt_to_head_page(object);
+		BUG_ON(s != page->slab_cache); /* Check if valid slab page */
 
 		if (c->page == page) {
 			/* Fastpath: local CPU free */
@@ -2791,7 +2745,6 @@ void kmem_cache_free_bulk(struct kmem_cache *s, size_t size, void **p)
 			c = this_cpu_ptr(s->cpu_slab);
 		}
 	}
-exit:
 	c->tid = next_tid(c->tid);
 	local_irq_enable();
 }
@@ -2803,6 +2756,10 @@ bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 {
 	struct kmem_cache_cpu *c;
 	int i;
+
+	/* Debugging fallback to generic bulk */
+	if (kmem_cache_debug(s))
+		return __kmem_cache_alloc_bulk(s, flags, size, p);
 
 	/*
 	 * Drain objects in the per cpu slab, while disabling local
@@ -2829,16 +2786,8 @@ bool kmem_cache_alloc_bulk(struct kmem_cache *s, gfp_t flags, size_t size,
 			continue; /* goto for-loop */
 		}
 
-		/* kmem_cache debug support */
-		s = slab_pre_alloc_hook(s, flags);
-		if (unlikely(!s))
-			goto error;
-
 		c->freelist = get_freepointer(s, object);
 		p[i] = object;
-
-		/* kmem_cache debug support */
-		slab_post_alloc_hook(s, flags, object);
 	}
 	c->tid = next_tid(c->tid);
 	local_irq_enable();
@@ -3052,7 +3001,6 @@ static void early_kmem_cache_node_alloc(int node)
 	init_object(kmem_cache_node, n, SLUB_RED_ACTIVE);
 	init_tracking(kmem_cache_node, n);
 #endif
-	kasan_kmalloc(kmem_cache_node, n, sizeof(struct kmem_cache_node));
 	init_kmem_cache_node(n);
 	inc_slabs_node(kmem_cache_node, node, page->objects);
 
@@ -3441,8 +3389,6 @@ void *__kmalloc(size_t size, gfp_t flags)
 	ret = slab_alloc(s, flags, _RET_IP_);
 
 	trace_kmalloc(_RET_IP_, ret, size, s->size, flags);
-
-	kasan_kmalloc(s, ret, size);
 
 	return ret;
 }
@@ -3879,7 +3825,7 @@ int __kmem_cache_create(struct kmem_cache *s, unsigned long flags)
  * Use the cpu notifier to insure that the cpu slabs are flushed when
  * necessary.
  */
-static int __cpuinit slab_cpuup_callback(struct notifier_block *nfb,
+static int slab_cpuup_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
 	long cpu = (long)hcpu;
@@ -3905,7 +3851,7 @@ static int __cpuinit slab_cpuup_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata slab_notifier = {
+static struct notifier_block slab_notifier = {
 	.notifier_call = slab_cpuup_callback
 };
 
