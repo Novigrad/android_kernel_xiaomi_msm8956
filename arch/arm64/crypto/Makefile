@@ -8,10 +8,10 @@
 # published by the Free Software Foundation.
 #
 
-ARM_ARCH_OPT1 := -mcpu=cortex-a72.cortex-a53+crypto -mtune=cortex-a72.cortex-a53
+ARM_ARCH_OPT1 := -mcpu=cortex-a72.cortex-a53+crypto
 GEN_OPT_FLAGS1 := $(call cc-option,$(ARM_ARCH_OPT1),-march=armv8-a+crc+crypto)
 
-ARM_ARCH_OPT2 := -mcpu=cortex-a72.cortex-a53+crc -mtune=cortex-a72.cortex-a53
+ARM_ARCH_OPT2 := -mcpu=cortex-a72.cortex-a53+crc
 GEN_OPT_FLAGS2 := $(call cc-option,$(ARM_ARCH_OPT2),-march=armv8-a+crc+crypto)
 
 obj-$(CONFIG_CRYPTO_SHA1_ARM64_CE) += sha1-ce.o

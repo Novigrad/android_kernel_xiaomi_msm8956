@@ -328,7 +328,7 @@ AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
 LD		+= -O3 --strip-debug
 CC		= $(CCACHE) $(CROSS_COMPILE)gcc
-CC		+= -O3 -mcpu=cortex-a72.cortex-a53+crypto -mtune=cortex-a72.cortex-a53
+CC		+= -O3 -mcpu=cortex-a72.cortex-a53+crypto
 CC		+= -fmodulo-sched -fmodulo-sched-allow-regmoves
 CC		+= -ftree-loop-distribution
 CPP		= $(CC) -E
@@ -353,7 +353,7 @@ CFLAGS_KERNEL	=
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
-ARM_ARCH_OPT := -mcpu=cortex-a72.cortex-a53+crypto -mtune=cortex-a72.cortex-a53
+ARM_ARCH_OPT := -mcpu=cortex-a72.cortex-a53+crypto
 GEN_OPT_FLAGS := $(call cc-option,$(ARM_ARCH_OPT),-march=armv8-a+crc+crypto) \
  -g0 \
  -DNDEBUG \
