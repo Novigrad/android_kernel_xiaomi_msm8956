@@ -7,9 +7,7 @@ white='\033[0m'
 red='\033[0;31m'
 gre='\e[0;32m'
 echo -e ""
-echo -e "$yellow ====================================\n Welcome\n ====================================\n 1.Build stable version "
-echo -n " Enter your choice:"
-read choice
+echo -e "$yellow=====================\n\n Welcome to GUYVER building program !\n\n=====================\n"
 echo -e "$white"
 Start=$(date +"%s")
 KERNEL_DIR=$PWD
@@ -21,7 +19,7 @@ export LD_LIBRARY_PATH=home/guyver/Desktop/Toolchain/Linaro-v6.3/lib/
 STRIP="/home/guyver/Desktop/Toolchain/Linaro-v6.3/bin/aarch64-linux-android-strip"
 make clean
 make guyver_defconfig
-export KBUILD_BUILD_HOST="ASUS"
+export KBUILD_BUILD_HOST="Xenial Xerus"
 export KBUILD_BUILD_USER="GUYVER"
 make -j5
 time=$(date +"%d-%m-%y-%T")
