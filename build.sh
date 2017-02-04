@@ -14,9 +14,9 @@ KERNEL_DIR=$PWD
 DTBTOOL=$KERNEL_DIR/dtbTool
 cd $KERNEL_DIR
 export ARCH=arm64
-export CROSS_COMPILE="/home/guyver/Desktop/Toolchain/Linaro-v6.3/bin/aarch64-linux-android-"
-export LD_LIBRARY_PATH=home/guyver/Desktop/Toolchain/Linaro-v6.3/lib/
-STRIP="/home/guyver/Desktop/Toolchain/Linaro-v6.3/bin/aarch64-linux-android-strip"
+export CROSS_COMPILE="/home/guyver/Desktop/Toolchain/GNU-7.0/bin/aarch64-linux-android-"
+export LD_LIBRARY_PATH=home/guyver/Desktop/Toolchain/GNU-7.0/lib/
+STRIP="/home/guyver/Desktop/Toolchain/GNU-7.0/bin/aarch64-linux-android-strip"
 make clean
 make guyver_defconfig
 export KBUILD_BUILD_HOST="Xenial Xerus"
