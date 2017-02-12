@@ -139,7 +139,7 @@ static void dump_backtrace(struct pt_regs *regs, struct task_struct *tsk)
 	struct stackframe frame;
 	const register unsigned long current_sp asm ("sp");
 
-	pr_debug("%s(regs = %p tsk = %p)\n", __func__, regs, tsk);
+	pr_debug("%s(regs = %pK tsk = %pK)\n", __func__, regs, tsk);
 
 	if (!tsk)
 		tsk = current;
@@ -207,7 +207,7 @@ static int __die(const char *str, int err, struct thread_info *thread,
 
 	print_modules();
 	__show_regs(regs);
-	pr_emerg("Process %.*s (pid: %d, stack limit = 0x%p)\n",
+	pr_emerg("Process %.*s (pid: %d, stack limit = 0x%pK)\n",
 		 TASK_COMM_LEN, tsk->comm, task_pid_nr(tsk), thread + 1);
 
 	if (!user_mode(regs) || in_interrupt()) {
@@ -368,7 +368,7 @@ die_sig:
 
 	if (user_mode(regs) && show_unhandled_signals &&
 		unhandled_signal(current, SIGILL) && printk_ratelimit()) {
-		pr_info("%s[%d]: undefined instruction: pc=%p\n",
+		pr_info("%s[%d]: undefined instruction: pc=%pK\n",
 			current->comm, task_pid_nr(current), pc);
 		dump_instr(KERN_INFO, regs);
 	}
@@ -406,16 +406,33 @@ asmlinkage long do_ni_syscall(struct pt_regs *regs)
 }
 
 /*
- * bad_mode handles the impossible case in the exception vector.
+ * bad_mode handles the impossible case in the exception vector. This is always
+ * fatal.
  */
 asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
+{
+	console_verbose();
+
+	pr_crit("Bad mode in %s handler detected, code 0x%08x\n",
+		handler[reason], esr);
+
+	die("Oops - bad mode", regs, 0);
+	local_irq_disable();
+	panic("bad mode");
+}
+
+/*
+ * bad_el0_sync handles unexpected, but potentially recoverable synchronous
+ * exceptions taken from EL0. Unlike bad_mode, this returns.
+ */
+asmlinkage void bad_el0_sync(struct pt_regs *regs, int reason, unsigned int esr)
 {
 	siginfo_t info;
 	void __user *pc = (void __user *)instruction_pointer(regs);
 	console_verbose();
 
-	pr_crit("Bad mode in %s handler detected, code 0x%08x\n",
-		handler[reason], esr);
+	pr_crit("Bad EL0 synchronous exception detected on CPU%d, code 0x%08x\n",
+		smp_processor_id(), esr);
 	__show_regs(regs);
 
 	info.si_signo = SIGILL;
@@ -429,7 +446,7 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 		arm64_check_cache_ecc(NULL);
 	}
 
-	arm64_notify_die("Oops - bad mode", regs, &info, 0);
+	force_sig_info(info.si_signo, &info, current);
 }
 
 void __pte_error(const char *file, int line, unsigned long val)

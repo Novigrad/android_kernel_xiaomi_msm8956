@@ -4166,7 +4166,7 @@ static const struct mmc_fixup blk_fixups[] =
 	MMC_FIXUP("008GE0", CID_MANFID_TOSHIBA, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_LONG_READ_TIME),
 
-	/*
+ 	/*
 	 * Some Samsung MMC cards need longer data read timeout than
 	 * indicated in CSD.
 	 */
@@ -4397,4 +4397,3 @@ module_exit(mmc_blk_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Multimedia Card (MMC) block device driver");
-

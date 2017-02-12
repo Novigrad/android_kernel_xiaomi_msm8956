@@ -464,7 +464,11 @@ advance:
 
 	iface_no = ctx->data->cur_altsetting->desc.bInterfaceNumber;
 
-	/* reset data interface */
+	/* Reset data interface. Some devices will not reset properly
+	 * unless they are configured first.  Toggle the altsetting to
+	 * force a reset
+	 */
+	usb_set_interface(dev->udev, iface_no, data_altsetting);
 	temp = usb_set_interface(dev->udev, iface_no, 0);
 	if (temp)
 		goto error2;
@@ -472,6 +476,13 @@ advance:
 	/* initialize data interface */
 	if (cdc_ncm_setup(ctx))
 		goto error2;
+
+	/* Some firmwares need a pause here or they will silently fail
+	 * to set up the interface properly.  This value was decided
+	 * empirically on a Sierra Wireless MC7455 running 02.08.02.00
+	 * firmware.
+	 */
+	usleep_range(10000, 20000);
 
 	/* configure data interface */
 	temp = usb_set_interface(dev->udev, iface_no, data_altsetting);
@@ -1002,7 +1013,7 @@ next_ndp:
 		if (((offset + len) > skb_in->len) ||
 				(len > ctx->rx_max) || (len < ETH_HLEN)) {
 			pr_debug("invalid frame detected (ignored)"
-					"offset[%u]=%u, length=%u, skb=%p\n",
+					"offset[%u]=%u, length=%u, skb=%pK\n",
 					x, offset, len, skb_in);
 			if (!x)
 				goto err_ndp;
