@@ -3380,7 +3380,7 @@ static void check_temp(struct work_struct *work)
 
 reschedule:
 	if (polling_enabled)
-		queue_delayed_work(system_power_efficient_wq,
+		mod_fwd_delayed_work(system_power_efficient_wq,
 			&check_temp_work,
 			msecs_to_jiffies(msm_thermal_info.poll_ms));
 }

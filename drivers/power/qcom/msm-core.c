@@ -319,7 +319,7 @@ static __ref int do_sampling(void *data)
 		if (!poll_ms)
 			goto unlock;
 
-		queue_delayed_work(system_power_efficient_wq,
+		mod_fwd_delayed_work(system_power_efficient_wq,
 			&sampling_work,
 			msecs_to_jiffies(poll_ms));
 unlock:
