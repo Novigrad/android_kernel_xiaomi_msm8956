@@ -19,7 +19,7 @@ export LD_LIBRARY_PATH=home/guyver/Desktop/Toolchain/Linaro-v6.3.1/lib/
 STRIP="/home/guyver/Desktop/Toolchain/Linaro-v6.3.1/bin/aarch64-linux-gnu-strip"
 make clean
 make guyver_defconfig
-export KBUILD_BUILD_HOST="Xenial Xerus"
+export KBUILD_BUILD_HOST="Ubuntu"
 export KBUILD_BUILD_USER="GUYVER"
 make -j5
 time=$(date +"%d-%m-%y-%T")

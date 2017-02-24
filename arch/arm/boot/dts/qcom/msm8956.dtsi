@@ -480,6 +480,7 @@
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
+			cpu-to-dev-map-0 =
 				<  691200  1769 >,	/* SVS   */
 				<  806400  6237 >,	/* SVS+  */
 				< 1017600  6667 >,	/* NOM   */
