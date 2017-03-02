@@ -78,7 +78,7 @@ struct cpufreq_impulse_tunables {
 	int usage_count;
 	/* Hi speed to bump to from lo speed when load burst (default max) */
 	unsigned int hispeed_freq;
-#define HISPEED_FREQ 960000;
+#define HISPEED_FREQ 1305600;
 	/* Go to hi speed when CPU load at or above this value. */
 #define DEFAULT_GO_HISPEED_LOAD 95
 	unsigned long go_hispeed_load;
