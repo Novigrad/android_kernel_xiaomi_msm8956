@@ -425,9 +425,10 @@ int pm_qos_update_target(struct pm_qos_constraints *c,
 	 * to update the new qos restriction for the cores
 	 */
 	if (!cpumask_empty(&cpus)) {
-		blocking_notifier_call_chain(c->notifiers,
-					     (unsigned long)curr_value,
-					     &cpus);
+		if (c->notifiers)
+			blocking_notifier_call_chain(c->notifiers,
+						     (unsigned long)curr_value,
+						     &cpus);
 		return 1;
 	} else {
 		return 0;

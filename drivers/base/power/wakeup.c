@@ -398,20 +398,6 @@ int device_set_wakeup_enable(struct device *dev, bool enable)
 }
 EXPORT_SYMBOL_GPL(device_set_wakeup_enable);
 
-/**
- * wakeup_source_not_registered - validate the given wakeup source.
- * @ws: Wakeup source to be validated.
- */
-static bool wakeup_source_not_registered(struct wakeup_source *ws)
-{
-	/*
-	 * Use timer struct to check if the given source is initialized
-	 * by wakeup_source_add.
-	 */
-	return ws->timer.function != pm_wakeup_timer_fn ||
-		   ws->timer.data != (unsigned long)ws;
-}
-
 #ifdef CONFIG_PM_AUTOSLEEP
 static void update_prevent_sleep_time(struct wakeup_source *ws, ktime_t now)
 {
