@@ -19,17 +19,24 @@
 #include <trace/events/power.h>
 #include <linux/moduleparam.h>
 
-static bool enable_si_ws = true;
+static bool enable_si_ws = false;
 module_param(enable_si_ws, bool, 0644);
-static bool enable_msm_hsic_ws = true;
+static bool enable_msm_hsic_ws = false;
 module_param(enable_msm_hsic_ws, bool, 0644);
-static bool wlan_rx_wake = true;
+static bool wlan_rx_wake = false;
 module_param(wlan_rx_wake, bool, 0644);
-static bool wlan_ctrl_wake = true;
+static bool wlan_ctrl_wake = false;
 module_param(wlan_ctrl_wake, bool, 0644);
-static bool wlan_wake = true;
+static bool wlan_wake = false;
 module_param(wlan_wake, bool, 0644);
-static bool enable_bluedroid_timer_ws = true;
+static bool enable_wlan_wow_wl_ws = false;
+module_param(enable_wlan_wow_wl_ws, bool, 0644);
+static bool enable_timerfd_ws = false;
+module_param(enable_timerfd_ws, bool, 0644);
+static bool enable_netlink_ws = false;
+module_param(enable_netlink_ws, bool, 0644);
+
+static bool enable_bluedroid_timer_ws = false;
 module_param(enable_bluedroid_timer_ws, bool, 0644);
 
 #include "power.h"
@@ -520,7 +527,7 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	unsigned int cec;
 	
 	if (!enable_si_ws && !strcmp(ws->name, "sensor_ind"))
-		return;
+	return;
 
 	if (!enable_msm_hsic_ws && !strcmp(ws->name, "msm_hsic_host"))
 	return;
@@ -534,8 +541,17 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	if (!wlan_wake && !strcmp(ws->name, "wlan_wake"))
 	return;
 
-	if (!enable_bluedroid_timer_ws && !strcmp(ws->name, "bluedroid_timer"))
-		return;
+	if (!enable_wlan_wow_wl_ws && !strncmp(ws->name, "wlan_wow_wl", 11))
+	return;
+
+	if (!enable_timerfd_ws && !strncmp(ws->name, "[timerfd]", 9))
+	return;
+
+	if (!enable_netlink_ws && !strncmp(ws->name, "NETLINK", 7))
+	return;
+
+	if (!enable_bluedroid_timer_ws && !strcmp(ws->name, "bluedroid_timer", 15))
+	return;
 
 	if (!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", 6)) {
 		if (ws->active)
