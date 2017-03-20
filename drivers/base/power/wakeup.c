@@ -15,7 +15,6 @@
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <linux/types.h>
-#include <linux/moduleparam.h>
 #include <trace/events/power.h>
 #include <linux/moduleparam.h>
 
@@ -35,7 +34,6 @@ static bool enable_timerfd_ws = false;
 module_param(enable_timerfd_ws, bool, 0644);
 static bool enable_netlink_ws = false;
 module_param(enable_netlink_ws, bool, 0644);
-
 static bool enable_bluedroid_timer_ws = false;
 module_param(enable_bluedroid_timer_ws, bool, 0644);
 
@@ -550,7 +548,7 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	if (!enable_netlink_ws && !strncmp(ws->name, "NETLINK", 7))
 	return;
 
-	if (!enable_bluedroid_timer_ws && !strcmp(ws->name, "bluedroid_timer", 15))
+	if (!enable_bluedroid_timer_ws && !strncmp(ws->name, "bluedroid_timer", 15))
 	return;
 
 	if (!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", 6)) {
