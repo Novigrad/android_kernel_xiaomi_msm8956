@@ -18,7 +18,7 @@ export CROSS_COMPILE="/home/guyver/Desktop/Toolchain/minz1/bin/aarch64-cortex_a7
 export LD_LIBRARY_PATH=home/guyver/Desktop/Toolchain/minz1/lib/
 STRIP="/home/guyver/Desktop/Toolchain/minz1/bin/aarch64-cortex_a72.a53-linux-gnueabi-strip"
 make clean
-make guyver_defconfig
+make akuma_defconfig
 export KBUILD_BUILD_HOST="Ubuntu"
 export KBUILD_BUILD_USER="GUYVER"
 make -j5
@@ -26,7 +26,3 @@ time=$(date +"%d-%m-%y-%T")
 $DTBTOOL -2 -o $KERNEL_DIR/arch/arm64/boot/dt.img -s 2048 -p $KERNEL_DIR/scripts/dtc/ $KERNEL_DIR/arch/arm/boot/dts/
 mv $KERNEL_DIR/arch/arm64/boot/dt.img $KERNEL_DIR/build/dtb
 cp $KERNEL_DIR/arch/arm64/boot/Image $KERNEL_DIR/build/zImage
-rm -rf $KEREL_DIR/build
-mkdir -p $KERNEL_DIR/build
-cp $KERNEL_DIR/drivers/staging/prima/wlan.ko $KERNEL_DIR/build/wlan.ko
-
