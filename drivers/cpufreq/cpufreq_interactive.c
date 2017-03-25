@@ -33,6 +33,8 @@
 #include <linux/kernel_stat.h>
 #include <linux/fb.h>
 #include <asm/cputime.h>
+#include <linux/state_notifier.h>
+static struct notifier_block interactive_state_notif;
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
@@ -107,6 +109,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 	return 0;
 }
 
+static bool suspended = false;
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -244,7 +247,7 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu,
 		add_timer(&ppol->policy_timer);
 	}
 
-	if (tunables->timer_slack_val >= 0 &&
+	if (!suspended && tunables->timer_slack_val >= 0 &&
 	    ppol->target_freq > ppol->policy->min) {
 		expires += usecs_to_jiffies(tunables->timer_slack_val);
 		del_timer(&ppol->policy_slack_timer);
@@ -271,7 +274,7 @@ static void cpufreq_interactive_timer_start(
 	spin_lock_irqsave(&ppol->load_lock, flags);
 	ppol->policy_timer.expires = expires;
 	add_timer(&ppol->policy_timer);
-	if (tunables->timer_slack_val >= 0 &&
+	if (!suspended && tunables->timer_slack_val >= 0 &&
 	    ppol->target_freq > ppol->policy->min) {
 		expires += usecs_to_jiffies(tunables->timer_slack_val);
 		ppol->policy_slack_timer.expires = expires;
@@ -549,7 +552,7 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 		new_freq = ppol->policy->max;
 	} else if (skip_hispeed_logic) {
 		new_freq = choose_freq(ppol, loadadjfreq);
-	} else if (cpu_load >= tunables->go_hispeed_load || tunables->boosted) {
+	} else if (cpu_load >= tunables->go_hispeed_load&& !suspended || tunables->boosted) {
 		if (ppol->target_freq < this_hispeed_freq) {
 			new_freq = this_hispeed_freq;
 		} else {
@@ -1788,6 +1791,26 @@ struct cpufreq_governor cpufreq_gov_interactive = {
 	.owner = THIS_MODULE,
 };
 
+static int state_notifier_callback(struct notifier_block *this,
+				unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init cpufreq_interactive_init(void)
 {
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
@@ -1800,6 +1823,10 @@ static int __init cpufreq_interactive_init(void)
 			       "cfinteractive");
 	if (IS_ERR(speedchange_task))
 		return PTR_ERR(speedchange_task);
+
+	interactive_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&interactive_state_notif))
+		pr_err("Failed to register State notifier callback\n");
 
 	sched_setscheduler_nocheck(speedchange_task, SCHED_FIFO, &param);
 	get_task_struct(speedchange_task);
