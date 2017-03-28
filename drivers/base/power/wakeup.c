@@ -18,33 +18,32 @@
 #include <trace/events/power.h>
 #include <linux/moduleparam.h>
 
-static bool enable_si_ws = false;
-module_param(enable_si_ws, bool, 0644);
+#include "power.h"
+
+static bool enable_wlan_rx_wake_ws = false;
+module_param(enable_wlan_rx_wake_ws, bool, 0644);
+static bool enable_wlan_ctrl_wake_ws = false;
+module_param(enable_wlan_ctrl_wake_ws, bool, 0644);
+static bool enable_wlan_wake_ws = false;
+module_param(enable_wlan_wake_ws, bool, 0644);
+static bool enable_bluedroid_timer_ws = false;
+module_param(enable_bluedroid_timer_ws, bool, 0644);
+static bool enable_ipa_ws = false;
+module_param(enable_ipa_ws, bool, 0644);
+static bool enable_qcom_rx_wakelock_ws = false;
+module_param(enable_qcom_rx_wakelock_ws, bool, 0644);
 static bool enable_msm_hsic_ws = false;
 module_param(enable_msm_hsic_ws, bool, 0644);
-static bool wlan_rx_wake = false;
-module_param(wlan_rx_wake, bool, 0644);
-static bool wlan_ctrl_wake = false;
-module_param(wlan_ctrl_wake, bool, 0644);
-static bool wlan_wake = false;
-module_param(wlan_wake, bool, 0644);
-static bool enable_wlan_wow_wl_ws = false;
-module_param(enable_wlan_wow_wl_ws, bool, 0644);
 static bool enable_timerfd_ws = false;
 module_param(enable_timerfd_ws, bool, 0644);
 static bool enable_netlink_ws = false;
 module_param(enable_netlink_ws, bool, 0644);
-static bool enable_bluedroid_timer_ws = false;
-module_param(enable_bluedroid_timer_ws, bool, 0644);
-static bool enable_qcom_rx_wakelock_ws = false;
-module_param(enable_qcom_rx_wakelock_ws, bool, 0644);
+static bool enable_wlan_wow_wl_ws = false;
+module_param(enable_wlan_wow_wl_ws, bool, 0644);
 static bool enable_wlan_extscan_wl_ws = false;
 module_param(enable_wlan_extscan_wl_ws, bool, 0644);
-static bool enable_ipa_ws = false;
-module_param(enable_ipa_ws, bool, 0644);
-
-#include "power.h"
-
+static bool enable_si_ws = false;
+module_param(enable_si_ws, bool, 0644);
 
 /*
  * If set, the suspend/hibernate code will abort transitions to a sleep state
@@ -488,6 +487,47 @@ static bool wakeup_source_not_registered(struct wakeup_source *ws)
 		   ws->timer.data != (unsigned long)ws;
 }
 
+static bool wakeup_source_blocker(struct wakeup_source *ws)
+{
+	unsigned int wslen = 0;
+
+	if (ws) {
+		wslen = strlen(ws->name);
+
+		if ((!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", wslen)) ||
+			(!enable_msm_hsic_ws &&
+				!strncmp(ws->name, "msm_hsic_host", wslen)) ||
+			(!enable_wlan_rx_wake_ws &&
+				!strncmp(ws->name, "wlan_rx_wake", wslen)) ||
+			(!enable_wlan_ctrl_wake_ws &&
+				!strncmp(ws->name, "wlan_ctrl_wake", wslen)) ||
+			(!enable_wlan_wake_ws &&
+				!strncmp(ws->name, "wlan_wake", wslen)) ||
+			(!enable_bluedroid_timer_ws &&
+				!strncmp(ws->name, "bluedroid_timer", wslen)) ||
+			(!enable_timerfd_ws &&
+				!strncmp(ws->name, "[timerfd]", wslen)) ||
+			(!enable_wlan_wow_wl_ws &&
+				!strncmp(ws->name, "[wlan_wow_wl]", wslen)) ||
+			(!enable_wlan_extscan_wl_ws &&
+				!strncmp(ws->name, "[wlan_extscan_wl]", wslen)) ||
+			(!enable_si_ws &&
+				!strncmp(ws->name, "[sensor_ind]", wslen)) ||
+			(!enable_netlink_ws &&
+				!strncmp(ws->name, "NETLINK", wslen))) {
+			if (ws->active) {
+				wakeup_source_deactivate(ws);
+				pr_info("forcefully deactivate wakeup source: %s\n",
+					ws->name);
+			}
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /*
  * The functions below use the observation that each wakeup event starts a
  * period in which the system should not be suspended.  The moment this period
@@ -527,50 +567,6 @@ static bool wakeup_source_not_registered(struct wakeup_source *ws)
 static void wakeup_source_activate(struct wakeup_source *ws)
 {
 	unsigned int cec;
-	
-	if (!enable_si_ws && !strcmp(ws->name, "sensor_ind"))
-	return;
-
-	if (!enable_msm_hsic_ws && !strcmp(ws->name, "msm_hsic_host"))
-	return;
-
-	if (!wlan_rx_wake && !strcmp(ws->name, "wlan_rx_wake"))
-	return;
-
-	if (!wlan_ctrl_wake && !strcmp(ws->name, "wlan_ctrl_wake"))
-	return;
-
-	if (!wlan_wake && !strcmp(ws->name, "wlan_wake"))
-	return;
-
-	if (!enable_netlink_ws && !strncmp(ws->name, "NETLINK", 7))
-	return;
-
-	if (!enable_timerfd_ws && !strncmp(ws->name, "[timerfd]", 9))
-	return;
-
-	if (!enable_wlan_wow_wl_ws && !strncmp(ws->name, "wlan_wow_wl", 11))
-	return;
-
-	if (!enable_bluedroid_timer_ws && !strncmp(ws->name, "bluedroid_timer", 15))
-	return;
-
-	if (!enable_wlan_extscan_wl_ws && !strncmp(ws->name, "wlan_extscan_wl", 15))
-	return;
-
-	if (!enable_qcom_rx_wakelock_ws && !strncmp(ws->name, "qcom_rx_wakelock", 16))
-	return;
-
-	if (!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", 6)) {
-		if (ws->active)
-			wakeup_source_deactivate(ws);
-
-		return;
-	}
-
-	if (WARN(wakeup_source_not_registered(ws),
-			"unregistered wakeup source\n"))
-		return;
 
 	/*
 	 * active wakeup source should bring the system
@@ -596,13 +592,15 @@ static void wakeup_source_activate(struct wakeup_source *ws)
  */
 static void wakeup_source_report_event(struct wakeup_source *ws)
 {
-	ws->event_count++;
-	/* This is racy, but the counter is approximate anyway. */
-	if (events_check_enabled)
-		ws->wakeup_count++;
+	if (!wakeup_source_blocker(ws)) {
+		ws->event_count++;
+		/* This is racy, but the counter is approximate anyway. */
+		if (events_check_enabled)
+			ws->wakeup_count++;
 
-	if (!ws->active)
-		wakeup_source_activate(ws);
+		if (!ws->active)
+			wakeup_source_activate(ws);
+	}
 }
 
 /**
