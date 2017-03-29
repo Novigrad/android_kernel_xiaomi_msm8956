@@ -48,11 +48,21 @@
 
 #define KEY_FINGERPRINT 0x2ee
 
+#ifdef CONFIG_MSM_HOTPLUG
+#include <linux/msm_hotplug.h>
+#include <linux/workqueue.h>
+#endif
+
+
 #define FPC1020_RESET_LOW_US 1000
 #define FPC1020_RESET_HIGH1_US 100
 #define FPC1020_RESET_HIGH2_US 1250
 #define FPC_TTW_HOLD_TIME 1000
 
+
+#ifdef CONFIG_MSM_HOTPLUG
+extern void msm_hotplug_resume_timeout(void);
+#endif
 
 struct vreg_config {
 	char *name;
@@ -263,6 +273,14 @@ err_free_dev:
 exit:
 	return ret;
 }
+
+#ifdef CONFIG_MSM_HOTPLUG
+static void msm_hotplug_resume_call(struct work_struct *msm_hotplug_resume_call_work)
+{
+	msm_hotplug_resume_timeout();
+}
+static DECLARE_WORK(msm_hotplug_resume_call_work, msm_hotplug_resume_call);
+#endif
 
 static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 {

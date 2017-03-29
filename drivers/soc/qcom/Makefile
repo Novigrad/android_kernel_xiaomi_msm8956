@@ -95,3 +95,4 @@ obj-$(CONFIG_MSM_VSENS) += vsens.o
 obj-$(CONFIG_SERIAL_NUM) += serial_num.o
 obj-$(CONFIG_INTELLI_HOTPLUG) += intelli_hotplug.o
 obj-$(CONFIG_STATE_HELPER) += state_helper.o
+obj-$(CONFIG_MSM_HOTPLUG) += msm_hotplug.o
