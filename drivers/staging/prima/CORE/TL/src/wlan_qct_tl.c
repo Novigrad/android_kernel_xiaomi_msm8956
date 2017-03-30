@@ -8361,7 +8361,7 @@ WLANTL_STATxAuth
 
   /* This code is to send traffic with lower priority AC when we does not 
      get admitted to send it. Today HAL does not downgrade AC so this code 
-     does not get executed.(In other words, HAL doesn’t change tid. The if 
+     does not get executed.(In other words, HAL doesn\92t change tid. The if 
      statement is always false.)
      NOTE: In the case of LA downgrade occurs in HDD (that was the change 
      Phani made during WMM-AC plugfest). If WM & BMP also took this approach, 
@@ -13775,6 +13775,46 @@ WLANTL_GetSTALinkCapacity
     return VOS_STATUS_SUCCESS;
 }/* WLANTL_GetSTALinkCapacity */
 
+/*
+ * WLANTL_ResetRxSSN - reset last rx ssn
+ * @pvosGCtx: global vos context
+ * @ucSTAId: station id
+ *
+ * This function resets the last ssn of all tids of the station
+ * for whom BA reorder session exists.
+ *
+ * Return: none
+ */
+void WLANTL_ResetRxSSN(v_PVOID_t pvosGCtx, uint8_t ucSTAId)
+{
+   WLANTL_CbType*  pTLCb = NULL;
+   WLANTL_STAClientType* pClientSTA = NULL;
+   uint8_t i;
+
+  if (WLANTL_STA_ID_INVALID(ucSTAId)) {
+    TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+             "WLAN TL:Invalid station id requested WLANTL_ResetRxSSN"));
+    return;
+  }
+
+  pTLCb = VOS_GET_TL_CB(pvosGCtx);
+  if (NULL == pTLCb) {
+    TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+         "WLAN TL:Invalid TL pointer from pvosGCtx WLANTL_ResetRxSSN"));
+    return;
+  }
+
+  pClientSTA = pTLCb->atlSTAClients[ucSTAId];
+
+  for (i = 0; i < WLAN_MAX_TID ; i++) {
+     if (0 == pClientSTA->atlBAReorderInfo[i].ucExists) {
+        continue;
+     }
+     TLLOG1(VOS_TRACE(VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO,
+           "WLAN TL: Last RxSSN reset to zero for tid %d", i));
+     pClientSTA->atlBAReorderInfo[i].LastSN = 0;
+  }
+}
 
 #ifdef WLAN_FEATURE_RMC
 VOS_STATUS WLANTL_RmcInit
@@ -14389,3 +14429,34 @@ WLANTL_SetMcastDuplicateDetection
 }
 
 #endif /* WLAN_FEATURE_RMC */
+
+void WLANTL_SetDataPktFilter(v_PVOID_t pvosGCtx, uint8_t ucSTAId, bool flag)
+{
+   WLANTL_CbType*  pTLCb = NULL;
+   WLANTL_STAClientType* pClientSTA = NULL;
+   uint8_t i;
+
+   if (WLANTL_STA_ID_INVALID(ucSTAId)) {
+      TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+            "%s: Invalid station id requested", __func__));
+      return;
+   }
+
+   pTLCb = VOS_GET_TL_CB(pvosGCtx);
+   if (NULL == pTLCb) {
+      TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+             "%s: Invalid TL pointer from pvosGCtx", __func__));
+   return;
+   }
+
+   pClientSTA = pTLCb->atlSTAClients[ucSTAId];
+
+   for (i = 0; i < WLAN_MAX_TID ; i++) {
+      if (0 == pClientSTA->atlBAReorderInfo[i].ucExists)
+         continue;
+
+      TLLOG1(VOS_TRACE(VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO,
+            "WLAN TL: Last RxSSN reset to zero for tid %d", i));
+      pClientSTA->atlBAReorderInfo[i].set_data_filter = flag;
+   }
+}
