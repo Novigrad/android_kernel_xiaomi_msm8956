@@ -1010,7 +1010,8 @@ static int get_property_from_fg(struct smbchg_chip *chip,
 	return rc;
 }
 
-#define DEFAULT_BATT_CAPACITY	50
+static int get_prop_batt_voltage_now(struct smbchg_chip *chip);
+#define DEFAULT_BATT_CAPACITY	1
 static int get_prop_batt_capacity(struct smbchg_chip *chip)
 {
 	int capacity, rc;
@@ -1023,6 +1024,12 @@ static int get_prop_batt_capacity(struct smbchg_chip *chip)
 		pr_smb(PR_STATUS, "Couldn't get capacity rc = %d\n", rc);
 		capacity = DEFAULT_BATT_CAPACITY;
 	}
+
+	if (is_usb_present(chip)
+			&& (POWER_SUPPLY_STATUS_FULL == get_prop_batt_status(chip))
+			&& get_prop_batt_voltage_now(chip) > 4300000)
+		capacity = 100;
+
 	return capacity;
 }
 
@@ -1084,8 +1091,7 @@ static int get_prop_batt_charge_full(struct smbchg_chip *chip)
 {
 	int uah, rc;
 
-	rc = get_property_from_fg(chip,
-			POWER_SUPPLY_PROP_CHARGE_FULL, &uah);
+	rc = get_property_from_fg(chip, POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &uah);
 	if (rc) {
 		pr_smb(PR_STATUS, "Couldn't get charge_full rc = %d\n", rc);
 		uah = DEFAULT_BATT_CHARGE_FULL;
