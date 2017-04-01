@@ -36,11 +36,15 @@ static bool enable_netlink_ws = false;
 module_param(enable_netlink_ws, bool, 0644);
 static bool enable_bluedroid_timer_ws = false;
 module_param(enable_bluedroid_timer_ws, bool, 0644);
+static bool enable_qcom_rx_wakelock_ws = false;
+module_param(enable_qcom_rx_wakelock_ws, bool, 0644);
+static bool enable_wlan_extscan_wl_ws = false;
+module_param(enable_wlan_extscan_wl_ws, bool, 0644);
+static bool enable_ipa_ws = false;
+module_param(enable_ipa_ws, bool, 0644);
 
 #include "power.h"
 
-static bool enable_ipa_ws = false;
-module_param(enable_ipa_ws, bool, 0644);
 
 /*
  * If set, the suspend/hibernate code will abort transitions to a sleep state
@@ -539,16 +543,22 @@ static void wakeup_source_activate(struct wakeup_source *ws)
 	if (!wlan_wake && !strcmp(ws->name, "wlan_wake"))
 	return;
 
-	if (!enable_wlan_wow_wl_ws && !strncmp(ws->name, "wlan_wow_wl", 11))
+	if (!enable_netlink_ws && !strncmp(ws->name, "NETLINK", 7))
 	return;
 
 	if (!enable_timerfd_ws && !strncmp(ws->name, "[timerfd]", 9))
 	return;
 
-	if (!enable_netlink_ws && !strncmp(ws->name, "NETLINK", 7))
+	if (!enable_wlan_wow_wl_ws && !strncmp(ws->name, "wlan_wow_wl", 11))
 	return;
 
 	if (!enable_bluedroid_timer_ws && !strncmp(ws->name, "bluedroid_timer", 15))
+	return;
+
+	if (!enable_wlan_extscan_wl_ws && !strncmp(ws->name, "wlan_extscan_wl", 15))
+	return;
+
+	if (!enable_qcom_rx_wakelock_ws && !strncmp(ws->name, "qcom_rx_wakelock", 16))
 	return;
 
 	if (!enable_ipa_ws && !strncmp(ws->name, "IPA_WS", 6)) {
