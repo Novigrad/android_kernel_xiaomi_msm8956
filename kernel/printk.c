@@ -2221,6 +2221,12 @@ void resume_console(void)
 	console_unlock();
 }
 
+void emergency_unlock_console(void)
+{
+	console_suspended = 0;
+}
+EXPORT_SYMBOL(emergency_unlock_console);
+
 static void console_flush(struct work_struct *work)
 {
 	console_lock();
