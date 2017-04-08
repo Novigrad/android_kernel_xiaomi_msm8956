@@ -3778,9 +3778,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	wakeup_source_init(&ipa_ctx->w_lock, "IPA_WS");
 	spin_lock_init(&ipa_ctx->wakelock_ref_cnt.spinlock);
 
-	/* Create a wakeup source. */
-	ipa_ctx->pdev->power.wakeup = wakeup_source_register("IPA_WS");
-
 	/* Initialize the SPS PM lock. */
 	mutex_init(&ipa_ctx->sps_pm.sps_pm_lock);
 
