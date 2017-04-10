@@ -21,6 +21,7 @@
 #include <linux/leds.h>
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
+#include <linux/display_state.h>
 
 #include "mdss_dsi.h"
 #include "mdss_dba_utils.h"
@@ -41,6 +42,13 @@ char g_lcm_id[128];
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 #define CEIL(x, y)	(((x) + ((y)-1)) / (y))
+
+bool display_on = true;
+
+bool is_display_on()
+{
+	return display_on;
+}
 
 static u32 rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62,
 	0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
@@ -721,6 +729,8 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	display_on = true;
+
 #ifdef CONFIG_POWERSUSPEND
 	set_power_suspend_state_panel_hook(POWER_SUSPEND_INACTIVE);
 #endif
@@ -826,6 +836,8 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 		mdss_dba_utils_video_off(pinfo->dba_data);
 		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
 	}
+
+	display_on = false;
 
 #ifdef CONFIG_POWERSUSPEND
 	set_power_suspend_state_panel_hook(POWER_SUSPEND_ACTIVE);
