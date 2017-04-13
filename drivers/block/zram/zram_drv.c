@@ -638,7 +638,7 @@ static int zram_decompress_page(struct zram *zram, char *mem, u32 index)
 
 	cmem = zs_map_object(meta->mem_pool, handle, ZS_MM_RO);
 	if (size == PAGE_SIZE) {
-		copy_page(mem, cmem);
+		memcpy(mem, cmem, PAGE_SIZE);
 	} else {
 		struct zcomp_strm *zstrm = zcomp_stream_get(zram->comp);
 
@@ -935,12 +935,12 @@ compress_again:
 
 	cmem = zs_map_object(meta->mem_pool, handle, ZS_MM_WO);
 
-	if (clen == PAGE_SIZE) {
-		user_mem = kmap_atomic(page);
-		copy_page(cmem, user_mem);
-		kunmap_atomic(user_mem);
+	if ((clen == PAGE_SIZE) && !is_partial_io(bvec)) {
+		src = kmap_atomic(page);
+		memcpy(cmem, src, PAGE_SIZE);
+		kunmap_atomic(src);
 	} else {
-		memcpy(cmem, zstrm->buffer, clen);
+		memcpy(cmem, src, clen);
 	}
 
 	zcomp_stream_put(zram->comp);
