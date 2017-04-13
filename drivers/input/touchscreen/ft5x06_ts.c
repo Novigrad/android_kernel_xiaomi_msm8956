@@ -329,13 +329,13 @@ struct ft5x06_ts_data {
 
 struct ft5x06_ts_data *ft5x06_ts = NULL;
 
-extern int is_tp_driver_loaded;
-
 #ifdef CONFIG_WAKE_GESTURES
 bool scr_suspended_ft(void) {
 	return ft5x06_ts->suspended;
 }
 #endif
+
+extern int is_tp_driver_loaded;
 
 static DEFINE_MUTEX(i2c_rw_access);
 
@@ -933,7 +933,7 @@ static int ft5x06_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_WAKE_GESTURES
-	if (device_may_wakeup(dev) && (s2w_switch || dt2w_switch) && !q6voice_voice_session_active()) {
+	if (device_may_wakeup(dev) && (s2w_switch || dt2w_switch) && !q6voice_voice_call_active()) {
 		ft5x0x_write_reg(data->client, 0xD0, 1);
 		err = enable_irq_wake(data->client->irq);
 		if (err)
@@ -993,18 +993,14 @@ static int ft5x06_ts_resume(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	int err;
-
-#ifdef CONFIG_WAKE_GESTURES
- 	int i;
-#endif
-
+	int i;
 	if (!data->suspended) {
 		dev_dbg(dev, "Already in awake state\n");
 		return 0;
 	}
 
 #ifdef CONFIG_WAKE_GESTURES
-	if (device_may_wakeup(dev) && (s2w_switch || dt2w_switch) && !q6voice_voice_session_active()) {
+	if (device_may_wakeup(dev) && (s2w_switch || dt2w_switch) && !q6voice_voice_call_active()) {
 		ft5x0x_write_reg(data->client, 0xD0, 0);
 
 		for (i = 0; i < data->pdata->num_max_touches; i++) {
@@ -3122,7 +3118,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 #ifdef CONFIG_WAKE_GESTURES
-	ft5x06_ts = data;
 	device_init_wakeup(&client->dev, 1);
 #endif
 
