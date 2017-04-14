@@ -25,8 +25,4 @@ make -j5
 time=$(date +"%d-%m-%y-%T")
 $DTBTOOL -2 -o $KERNEL_DIR/arch/arm64/boot/dt.img -s 2048 -p $KERNEL_DIR/scripts/dtc/ $KERNEL_DIR/arch/arm/boot/dts/
 mv $KERNEL_DIR/arch/arm64/boot/dt.img $KERNEL_DIR/build/dtb
-cp $KERNEL_DIR/arch/arm64/boot/Image $KERNEL_DIR/build/zImage
-rm -rf $KEREL_DIR/build
-mkdir -p $KERNEL_DIR/build
-cp $KERNEL_DIR/drivers/staging/prima/wlan.ko $KERNEL_DIR/build/wlan.ko
-
+cp $KERNEL_DIR/arch/arm64/boot/Image.gz $KERNEL_DIR/build/zImage
