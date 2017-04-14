@@ -448,20 +448,11 @@ static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 
 static irqreturn_t gf_irq(int irq, void *handle)
 {
+	struct gf_dev *gf_dev = &gf;
 	pr_info("%s: enter\n", __func__);
 #ifdef GF_FASYNC
-	{
-		struct gf_dev *gf_dev = &gf;
-		if (gf_dev->async)
-			kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
-	}
-#endif
-
-#ifdef GF_NETLINK_ENABLE
-	{
-		char msg[2] = { GF_NET_EVENT_IRQ, 0 };
-		sendnlmsg(msg);
-	}
+	if (gf_dev->async)
+		kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
 #endif
 
 	return IRQ_HANDLED;
@@ -473,9 +464,6 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 	struct gf_dev *gf_dev;
 	struct fb_event *evdata = data;
 	unsigned int blank;
-#ifdef GF_NETLINK_ENABLE
-	char msg[2];
-#endif
 
 	pr_info("%s: enter\n", __func__);
 	if (val != FB_EARLY_EVENT_BLANK)
@@ -494,11 +482,6 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 					kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
 				}
 #endif
-#ifdef GF_NETLINK_ENABLE
-				msg[0] = GF_NET_EVENT_FB_BLACK;
-				msg[1] = 0;
-				sendnlmsg(msg);
-#endif
 				/*device unavailable */
 			}
 			break;
@@ -509,11 +492,6 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 				if (gf_dev->async) {
 					kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
 				}
-#endif
-#ifdef GF_NETLINK_ENABLE
-				msg[0] = GF_NET_EVENT_FB_UNBLACK;
-				msg[1] = 0;
-				sendnlmsg(msg);
 #endif
 				/*device available */
 			}
@@ -964,10 +942,6 @@ static int __init gf_init(void)
 		pr_warn("Failed to register SPI driver.\n");
 	}
 
-#ifdef GF_NETLINK_ENABLE
-	netlink_init();
-#endif
-
 	pr_info(" status = 0x%x\n", status);
 	FUNC_EXIT();
 	return 0;
@@ -977,9 +951,6 @@ module_init(gf_init);
 static void __exit gf_exit(void)
 {
 	FUNC_ENTRY();
-#ifdef GF_NETLINK_ENABLE
-	netlink_exit();
-#endif
 #if defined(USE_PLATFORM_BUS)
 	platform_driver_unregister(&gf_driver);
 #elif defined(USE_SPI_BUS)
