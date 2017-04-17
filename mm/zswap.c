@@ -77,7 +77,7 @@ static u64 zswap_duplicate_entry;
 **********************************/
 
 /* Enable/disable zswap (disabled by default) */
-static bool zswap_enabled = true;
+static bool zswap_enabled = false;
 module_param_named(enabled, zswap_enabled, bool, 0644);
 
 /* Crypto compressor to use */
