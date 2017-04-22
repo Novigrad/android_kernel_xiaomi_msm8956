@@ -935,12 +935,12 @@ compress_again:
 
 	cmem = zs_map_object(meta->mem_pool, handle, ZS_MM_WO);
 
-	if ((clen == PAGE_SIZE) && !is_partial_io(bvec)) {
-		src = kmap_atomic(page);
-		memcpy(cmem, src, PAGE_SIZE);
-		kunmap_atomic(src);
+	if (clen == PAGE_SIZE) {
+		user_mem = kmap_atomic(page);
+		copy_page(cmem, user_mem);
+		kunmap_atomic(user_mem);
 	} else {
-		memcpy(cmem, src, clen);
+		memcpy(cmem, zstrm->buffer, clen);
 	}
 
 	zcomp_stream_put(zram->comp);
