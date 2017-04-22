@@ -48,21 +48,11 @@
 
 #define KEY_FINGERPRINT 0x2ee
 
-#ifdef CONFIG_MSM_HOTPLUG
-#include <linux/msm_hotplug.h>
-#include <linux/workqueue.h>
-#endif
-
-
 #define FPC1020_RESET_LOW_US 1000
 #define FPC1020_RESET_HIGH1_US 100
 #define FPC1020_RESET_HIGH2_US 1250
 #define FPC_TTW_HOLD_TIME 1000
 
-
-#ifdef CONFIG_MSM_HOTPLUG
-extern void msm_hotplug_resume_timeout(void);
-#endif
 
 struct vreg_config {
 	char *name;
@@ -83,10 +73,9 @@ struct fpc1020_data {
 	int rst_gpio;
 	struct mutex lock;
 	bool wakeup_enabled;
-	struct input_dev *input_dev;
+	struct input_dev *input_dev; 
 };
 
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 unsigned int kenzo_fpsensor = 1;
 static int __init setup_kenzo_fpsensor(char *str)
 {
@@ -96,7 +85,6 @@ static int __init setup_kenzo_fpsensor(char *str)
 	return kenzo_fpsensor;
 }
 __setup("androidboot.fpsensor=", setup_kenzo_fpsensor);
-#endif
 
 static int vreg_setup(struct fpc1020_data *fpc1020, const char *name,
 		      bool enable)
@@ -286,14 +274,6 @@ exit:
 	return ret;
 }
 
-#ifdef CONFIG_MSM_HOTPLUG
-static void msm_hotplug_resume_call(struct work_struct *msm_hotplug_resume_call_work)
-{
-	msm_hotplug_resume_timeout();
-}
-static DECLARE_WORK(msm_hotplug_resume_call_work, msm_hotplug_resume_call);
-#endif
-
 static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 {
 	struct fpc1020_data *fpc1020 = handle;
@@ -349,12 +329,10 @@ static int fpc1020_probe(struct platform_device* pdev)
 	struct device_node *np = dev->of_node;
 	struct fpc1020_data *fpc1020;
 
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 	if (kenzo_fpsensor != 1) {
 		pr_err("board no fpc fpsensor\n");
 		return -ENODEV;
 	}
-#endif
 
 	fpc1020 = devm_kzalloc(dev, sizeof(*fpc1020),
 						    GFP_KERNEL);

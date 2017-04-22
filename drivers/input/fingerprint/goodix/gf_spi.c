@@ -100,9 +100,7 @@ static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 static struct gf_dev gf;
 
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 extern int kenzo_fpsensor;
-#endif
 
 static int driver_init_partial(struct gf_dev *gf_dev);
 
@@ -470,7 +468,7 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 
 	if (val != FB_EARLY_EVENT_BLANK)
 		return 0;
-	pr_debug("[info] %s go to the goodix_fb_state_chg_callback value = %d\n",
+	pr_info("[info] %s go to the goodix_fb_state_chg_callback value = %d\n",
 			__func__, (int)val);
 	gf_dev = container_of(nb, struct gf_dev, notifier);
 	if (evdata && evdata->data && val == FB_EARLY_EVENT_BLANK && gf_dev) {
@@ -509,7 +507,7 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 			}
 			break;
 		default:
-			pr_debug("%s defalut\n", __func__);
+			pr_info("%s defalut\n", __func__);
 			break;
 		}
 	}
@@ -738,12 +736,10 @@ static int gf_probe(struct platform_device *pdev)
 #endif
 	FUNC_ENTRY();
 
-#ifdef CONFIG_MACH_XIAOMI_KENZO
 	if (kenzo_fpsensor != 2) {
 		pr_err("board no gdx fpsensor\n");
 		return -ENODEV;
 	}
-#endif
 
 	/* Initialize the driver data */
 	INIT_LIST_HEAD(&gf_dev->device_entry);
