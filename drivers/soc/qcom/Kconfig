@@ -708,10 +708,6 @@ config INTELLI_HOTPLUG
 	help
 	  Generic Intelli-plug cpu hotplug driver for ARM SOCs
 
-config STATE_HELPER
-        bool "State Helper"
-	depends on STATE_NOTIFIER
-
 config MSM_HOTPLUG
 	bool "MSM hotplug driver"
 	depends on HOTPLUG_CPU
