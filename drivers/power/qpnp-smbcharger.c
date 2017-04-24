@@ -394,7 +394,7 @@ enum battchg_enable_voters {
 	NUM_BATTCHG_EN_VOTERS,
 };
 
-static int smbchg_debug_mask;
+static int smbchg_debug_mask = 0;
 module_param_named(
 	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
 );
@@ -447,21 +447,8 @@ module_param_named(
 	int, S_IRUSR | S_IWUSR
 );
 
-#define pr_smb(reason, fmt, ...)				\
-	do {							\
-		if (smbchg_debug_mask & (reason))		\
-			pr_info(fmt, ##__VA_ARGS__);		\
-		else						\
-			pr_debug(fmt, ##__VA_ARGS__);		\
-	} while (0)
-
-#define pr_smb_rt(reason, fmt, ...)					\
-	do {								\
-		if (smbchg_debug_mask & (reason))			\
-			pr_info_ratelimited(fmt, ##__VA_ARGS__);	\
-		else							\
-			pr_debug_ratelimited(fmt, ##__VA_ARGS__);	\
-	} while (0)
+#define pr_smb(reason, fmt, ...)
+#define pr_smb_rt(reason, fmt, ...)
 
 static int smbchg_read(struct smbchg_chip *chip, u8 *val,
 			u16 addr, int count)
@@ -3404,7 +3391,7 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 		ret = rc;
 	} else {
 		if (chip->vfloat_mv != (max_voltage_uv / 1000)) {
-			pr_info("Vfloat changed from %dmV to %dmV for battery-type %s\n",
+			pr_debug("Vfloat changed from %dmV to %dmV for battery-type %s\n",
 				chip->vfloat_mv, (max_voltage_uv / 1000),
 				chip->battery_type);
 			rc = smbchg_float_voltage_set(chip,
@@ -3426,7 +3413,7 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 	} else if (!rc) {
 		if (chip->iterm_ma != (iterm_ua / 1000)
 				&& !chip->iterm_disabled) {
-			pr_info("Term current changed from %dmA to %dmA for battery-type %s\n",
+			pr_debug("Term current changed from %dmA to %dmA for battery-type %s\n",
 				chip->iterm_ma, (iterm_ua / 1000),
 				chip->battery_type);
 			rc = smbchg_iterm_set(chip,
@@ -5686,13 +5673,13 @@ static int lct_get_prop_batt_temp(struct smbchg_chip *chip)
 			}
 		}
 	}
-	pr_info("chip->ntc_vadc=%p \n", chip->ntc_vadc);
+	pr_debug("chip->ntc_vadc=%p \n", chip->ntc_vadc);
 	rc = qpnp_vadc_read(chip->ntc_vadc, P_MUX4_1_1, &results);
 	if (rc) {
-		pr_info("Unable to read batt temperature rc=%d\n", rc);
+		pr_debug("Unable to read batt temperature rc=%d\n", rc);
 		return DEFAULT_TEMP;
 	}
-	pr_info("get_bat_temp %d, %lld , %lld\n", results.adc_code,
+	pr_debug("get_bat_temp %d, %lld , %lld\n", results.adc_code,
 					results.physical, results.measurement);
 	return (int)results.physical;
 }
@@ -5852,7 +5839,7 @@ void runin_work(struct smbchg_chip *chip, int batt_capacity)
 		return;
 	}
 	is_oldtest = true;
-	pr_info("%s:BatteryTestStatus_enable = %d chip->usb_present = %d \n", __func__, BatteryTestStatus_enable, chip->usb_present);
+	pr_debug("%s:BatteryTestStatus_enable = %d chip->usb_present = %d \n", __func__, BatteryTestStatus_enable, chip->usb_present);
 	if (batt_capacity > 80) {
 		pr_debug("smbcharge_get_prop_batt_capacity > 80\n");
 		rc = vote(chip->usb_suspend_votable,  BATTCHG_USER_EN_VOTER, false, 0);
