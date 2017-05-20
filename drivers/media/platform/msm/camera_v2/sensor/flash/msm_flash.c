@@ -619,6 +619,42 @@ static int32_t msm_flash_init(
 	return 0;
 }
 
+#ifdef CONFIG_COMPAT
+static int32_t msm_flash_init_prepare(
+	struct msm_flash_ctrl_t *flash_ctrl,
+	struct msm_flash_cfg_data_t *flash_data)
+{
+	return msm_flash_init(flash_ctrl, flash_data);
+}
+#else
+static int32_t msm_flash_init_prepare(
+	struct msm_flash_ctrl_t *flash_ctrl,
+	struct msm_flash_cfg_data_t *flash_data)
+{
+	struct msm_flash_cfg_data_t flash_data_k;
+	struct msm_flash_init_info_t flash_init_info;
+	int32_t i = 0;
+
+	flash_data_k.cfg_type = flash_data->cfg_type;
+	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+		flash_data_k.flash_current[i] =
+			flash_data->flash_current[i];
+		flash_data_k.flash_duration[i] =
+			flash_data->flash_duration[i];
+	}
+
+	flash_data_k.cfg.flash_init_info = &flash_init_info;
+	if (copy_from_user(&flash_init_info,
+		(void *)(flash_data->cfg.flash_init_info),
+		sizeof(struct msm_flash_init_info_t))) {
+		pr_err("%s copy_from_user failed %d\n",
+			__func__, __LINE__);
+		return -EFAULT;
+	}
+	return msm_flash_init(flash_ctrl, &flash_data_k);
+}
+#endif
+
 static int32_t msm_flash_low(
 	struct msm_flash_ctrl_t *flash_ctrl,
 	struct msm_flash_cfg_data_t *flash_data)
@@ -725,7 +761,7 @@ static int32_t msm_flash_config(struct msm_flash_ctrl_t *flash_ctrl,
 
 	switch (flash_data->cfg_type) {
 	case CFG_FLASH_INIT:
-		rc = msm_flash_init(flash_ctrl, flash_data);
+		rc = msm_flash_init_prepare(flash_ctrl, flash_data);
 #ifdef CONFIG_MACH_XIAOMI_HYDROGEN
 		g_flashlight_brightness = 0;
 #endif
@@ -1151,23 +1187,15 @@ static long msm_flash_subdev_do_ioctl(
 {
 	int32_t i = 0;
 	int32_t rc = 0;
-	struct video_device *vdev;
-	struct v4l2_subdev *sd;
-	struct msm_flash_cfg_data_t32 *u32;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct msm_flash_cfg_data_t32 *u32 =
+		(struct msm_flash_cfg_data_t32 *)arg;
 	struct msm_flash_cfg_data_t flash_data;
 	struct msm_flash_init_info_t32 flash_init_info32;
 	struct msm_flash_init_info_t flash_init_info;
 
 	CDBG("Enter");
-
-	if (!file || !arg) {
-		pr_err("%s:failed NULL parameter\n", __func__);
-		return -EINVAL;
-	}
-	vdev = video_devdata(file);
-	sd = vdev_to_v4l2_subdev(vdev);
-	u32 = (struct msm_flash_cfg_data_t32 *)arg;
-
 	flash_data.cfg_type = u32->cfg_type;
 	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
 		flash_data.flash_current[i] = u32->flash_current[i];
