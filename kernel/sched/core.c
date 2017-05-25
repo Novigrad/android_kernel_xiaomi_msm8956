@@ -9311,7 +9311,6 @@ build_sched_groups(struct sched_domain *sd, int cpu)
 
 	for_each_cpu_wrap(i, span, cpu) {
 		struct sched_group *sg;
-		int group = get_group(i, sdd, &sg);
 
 		if (cpumask_test_cpu(i, covered))
 			continue;
