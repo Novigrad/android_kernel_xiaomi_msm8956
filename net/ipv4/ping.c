@@ -150,17 +150,17 @@ void ping_hash(struct sock *sk)
 void ping_unhash(struct sock *sk)
 {
 	struct inet_sock *isk = inet_sk(sk);
-	pr_debug("ping_unhash(isk=%pK,isk->num=%u)\n", isk, isk->inet_num);
+	pr_debug("ping_unhash(isk=%p,isk->num=%u)\n", isk, isk->inet_num);
+	write_lock_bh(&ping_table.lock);
 	if (sk_hashed(sk)) {
-		write_lock_bh(&ping_table.lock);
 		hlist_nulls_del(&sk->sk_nulls_node);
 		sk_nulls_node_init(&sk->sk_nulls_node);
 		sock_put(sk);
 		isk->inet_num = 0;
 		isk->inet_sport = 0;
 		sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-		write_unlock_bh(&ping_table.lock);
 	}
+	write_unlock_bh(&ping_table.lock);
 }
 EXPORT_SYMBOL_GPL(ping_unhash);
 
@@ -193,7 +193,7 @@ static struct sock *ping_lookup(struct net *net, struct sk_buff *skb, u16 ident)
 
 		if (skb->protocol == htons(ETH_P_IP) &&
 		    sk->sk_family == AF_INET) {
-			pr_debug("found: %pK: num=%d, daddr=%pI4, dif=%d\n", sk,
+			pr_debug("found: %p: num=%d, daddr=%pI4, dif=%d\n", sk,
 				 (int) isk->inet_num, &isk->inet_rcv_saddr,
 				 sk->sk_bound_dev_if);
 
@@ -205,7 +205,7 @@ static struct sock *ping_lookup(struct net *net, struct sk_buff *skb, u16 ident)
 			   sk->sk_family == AF_INET6) {
 			struct ipv6_pinfo *np = inet6_sk(sk);
 
-			pr_debug("found: %pK: num=%d, daddr=%pI6c, dif=%d\n", sk,
+			pr_debug("found: %p: num=%d, daddr=%pI6c, dif=%d\n", sk,
 				 (int) isk->inet_num,
 				 &inet6_sk(sk)->rcv_saddr,
 				 sk->sk_bound_dev_if);
@@ -287,7 +287,7 @@ EXPORT_SYMBOL_GPL(ping_init_sock);
 
 void ping_close(struct sock *sk, long timeout)
 {
-	pr_debug("ping_close(sk=%pK,sk->num=%u)\n",
+	pr_debug("ping_close(sk=%p,sk->num=%u)\n",
 		 inet_sk(sk), inet_sk(sk)->inet_num);
 	pr_debug("isk->refcnt = %d\n", sk->sk_refcnt.counter);
 
@@ -311,7 +311,7 @@ int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
 		      addr->sin_addr.s_addr == htonl(INADDR_ANY)))
 			return -EAFNOSUPPORT;
 
-		pr_debug("ping_check_bind_addr(sk=%pK,addr=%pI4,port=%d)\n",
+		pr_debug("ping_check_bind_addr(sk=%p,addr=%pI4,port=%d)\n",
 			 sk, &addr->sin_addr.s_addr, ntohs(addr->sin_port));
 
 		chk_addr_ret = inet_addr_type(net, addr->sin_addr.s_addr);
@@ -338,7 +338,7 @@ int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
 		if (addr->sin6_family != AF_INET6)
 			return -EAFNOSUPPORT;
 
-		pr_debug("ping_check_bind_addr(sk=%pK,addr=%pI6c,port=%d)\n",
+		pr_debug("ping_check_bind_addr(sk=%p,addr=%pI6c,port=%d)\n",
 			 sk, addr->sin6_addr.s6_addr, ntohs(addr->sin6_port));
 
 		addr_type = ipv6_addr_type(&addr->sin6_addr);
@@ -516,7 +516,7 @@ void ping_err(struct sk_buff *skb, int offset, u32 info)
 		pr_debug("no socket, dropping\n");
 		return;	/* No socket for error */
 	}
-	pr_debug("err on socket %pK\n", sk);
+	pr_debug("err on socket %p\n", sk);
 
 	err = 0;
 	harderr = 0;
@@ -639,6 +639,8 @@ static int ping_v4_push_pending_frames(struct sock *sk, struct pingfakehdr *pfh,
 {
 	struct sk_buff *skb = skb_peek(&sk->sk_write_queue);
 
+	if (!skb)
+		return 0;
 	pfh->wcheck = csum_partial((char *)&pfh->icmph,
 		sizeof(struct icmphdr), pfh->wcheck);
 	pfh->icmph.checksum = csum_fold(pfh->wcheck);
@@ -708,7 +710,7 @@ int ping_v4_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	u8  tos;
 	int err;
 
-	pr_debug("ping_v4_sendmsg(sk=%pK,sk->num=%u)\n", inet, inet->inet_num);
+	pr_debug("ping_v4_sendmsg(sk=%p,sk->num=%u)\n", inet, inet->inet_num);
 
 	err = ping_common_sendmsg(AF_INET, msg, len, &user_icmph,
 				  sizeof(user_icmph));
@@ -858,7 +860,7 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 	struct sk_buff *skb;
 	int copied, err;
 
-	pr_debug("ping_recvmsg(sk=%pK,sk->num=%u)\n", isk, isk->inet_num);
+	pr_debug("ping_recvmsg(sk=%p,sk->num=%u)\n", isk, isk->inet_num);
 
 	err = -EOPNOTSUPP;
 	if (flags & MSG_OOB)
@@ -950,7 +952,7 @@ EXPORT_SYMBOL_GPL(ping_recvmsg);
 
 int ping_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 {
-	pr_debug("ping_queue_rcv_skb(sk=%pK,sk->num=%d,skb=%pK)\n",
+	pr_debug("ping_queue_rcv_skb(sk=%p,sk->num=%d,skb=%p)\n",
 		 inet_sk(sk), inet_sk(sk)->inet_num, skb);
 	if (sock_queue_rcv_skb(sk, skb) < 0) {
 		kfree_skb(skb);
@@ -974,7 +976,7 @@ void ping_rcv(struct sk_buff *skb)
 
 	/* We assume the packet has already been checked by icmp_rcv */
 
-	pr_debug("ping_rcv(skb=%pK,id=%04x,seq=%04x)\n",
+	pr_debug("ping_rcv(skb=%p,id=%04x,seq=%04x)\n",
 		 skb, ntohs(icmph->un.echo.id), ntohs(icmph->un.echo.sequence));
 
 	/* Push ICMP header back */
@@ -984,7 +986,7 @@ void ping_rcv(struct sk_buff *skb)
 	if (sk != NULL) {
 		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
 
-		pr_debug("rcv on socket %pK\n", sk);
+		pr_debug("rcv on socket %p\n", sk);
 		if (skb2)
 			ping_queue_rcv_skb(sk, skb2);
 		sock_put(sk);

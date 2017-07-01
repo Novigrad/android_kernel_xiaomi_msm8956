@@ -2606,6 +2606,8 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
 {
 	struct sock *sk = sock->sk;
 	char name[sizeof(uaddr->sa_data) + 1];
+	struct net_device *dev;
+	int err = -ENODEV;
 
 	/*
 	 *	Check legality
@@ -3443,7 +3445,6 @@ static int packet_notifier(struct notifier_block *this, unsigned long msg, void 
 				}
 				if (msg == NETDEV_UNREGISTER) {
 					packet_cached_dev_reset(po);
-					fanout_release(sk);
 					po->ifindex = -1;
 					if (po->prot_hook.dev)
 						dev_put(po->prot_hook.dev);
