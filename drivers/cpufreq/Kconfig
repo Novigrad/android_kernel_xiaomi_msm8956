@@ -169,6 +169,12 @@ config CPU_FREQ_DEFAULT_GOV_LIONFISH
 	help
 	  Use the CPUFreq governor 'lionfish' as default.
 
+config CPU_FREQ_DEFAULT_GOV_DARKNESS
+	bool "darkness"
+	select CPU_FREQ_GOV_DARKNESS
+	help
+	Use the CPUFreq governor 'darkness' as default.
+
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -335,6 +341,12 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_DARKNESS
+	tristate "'darkness' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'darkness' - another tuned interactive with extra options
 
 config CPU_BOOST
 	tristate "Event base short term CPU freq boost"
