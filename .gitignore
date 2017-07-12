@@ -92,6 +92,9 @@ signing_key.priv
 signing_key.x509
 x509.genkey
 
+# Darkness
+Darkness
+dtbToolCM
 
 # Compiled kernel
 build/*.zip
