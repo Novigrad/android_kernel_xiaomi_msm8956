@@ -2606,8 +2606,6 @@ static int packet_bind_spkt(struct socket *sock, struct sockaddr *uaddr,
 {
 	struct sock *sk = sock->sk;
 	char name[sizeof(uaddr->sa_data) + 1];
-	struct net_device *dev;
-	int err = -ENODEV;
 
 	/*
 	 *	Check legality

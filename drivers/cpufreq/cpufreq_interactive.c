@@ -552,7 +552,7 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 		new_freq = ppol->policy->max;
 	} else if (skip_hispeed_logic) {
 		new_freq = choose_freq(ppol, loadadjfreq);
-	} else if (cpu_load >= tunables->go_hispeed_load&& !suspended || tunables->boosted) {
+	} else if ((cpu_load >= tunables->go_hispeed_load && !suspended) || tunables->boosted) {
 		if (ppol->target_freq < this_hispeed_freq) {
 			new_freq = this_hispeed_freq;
 		} else {
