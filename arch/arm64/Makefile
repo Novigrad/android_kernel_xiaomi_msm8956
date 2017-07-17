@@ -26,7 +26,6 @@ GEN_OPT_FLAGS := $(call cc-option,$(ARM_ARCH_OPT),-march=armv8-a+crc+crypto) \
 -fmodulo-sched-allow-regmoves \
 -fivopts
 
-
 KBUILD_CFLAGS	+= -mgeneral-regs-only
 KBUILD_CFLAGS	+= -fno-pic
 KBUILD_CFLAGS	+= $(call cc-option, -mpc-relative-literal-loads)
@@ -103,7 +102,7 @@ archclean:
 
 define archhelp
   echo  '* Image.gz      - Compressed kernel image (arch/$(ARCH)/boot/Image.gz)'
-  echo  '* Image.lz4      - Compressed kernel image (arch/$(ARCH)/boot/Image.lz4)'
+  echo  '* Image.lz4     - Compressed kernel image (arch/$(ARCH)/boot/Image.lz4)'
   echo  '  Image         - Uncompressed kernel image (arch/$(ARCH)/boot/Image)'
   echo  '* dtbs          - Build device tree blobs for enabled boards'
   echo  '  install       - Install uncompressed kernel'

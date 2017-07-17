@@ -158,7 +158,7 @@ VPATH		:= $(srctree)$(if $(KBUILD_EXTMOD),:$(KBUILD_EXTMOD))
 
 export srctree objtree VPATH
 
-CCACHE := $(shell which ccache)
+CCACHE := ccache
 # SUBARCH tells the usermode build what the underlying arch is.  That is set
 # first, and if a usermode build is happening, the "ARCH=um" on the command
 # line overrides the setting of ARCH below.  If a native build is happening,
@@ -192,7 +192,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x86/ \
 # "make" in the configured kernel build directory always uses that.
 # Default value for CROSS_COMPILE is not to prefix executables
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
-ARCH		?= $(SUBARCH)
+ARCH		?= arm64
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
 
 # Architecture as present in compile.h
@@ -239,13 +239,10 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 	  else if [ -x /bin/bash ]; then echo /bin/bash; \
 	  else echo sh; fi ; fi)
 
-# Set optimization flags for gcc
-GRAPHITE	= -fgraphite-identity -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block -floop-flatten
-
 HOSTCC       = $(CCACHE) gcc
 HOSTCXX      = $(CCACHE) g++
-HOSTCFLAGS   = $(GRAPHITE) -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer -fgcse-las -fgraphite -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block -pipe -Wno-unused-parameter -Wno-sign-compare -Wno-missing-field-initializers -Wno-unused-variable -Wno-unused-value
-HOSTCXXFLAGS = -O3 -fgcse-las -fgraphite -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block -pipe
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer -std=gnu89
+HOSTCXXFLAGS = -O3
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -329,11 +326,7 @@ include $(srctree)/scripts/Kbuild.include
 
 AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
-LD		+= -O3 --strip-debug
-CC		= $(CCACHE) $(CROSS_COMPILE)gcc
-CC		+= -O3 -mcpu=cortex-a72.cortex-a53+crypto
-CC		+= -fmodulo-sched -fmodulo-sched-allow-regmoves
-CC		+= -ftree-loop-distribution
+REAL_CC		= $(CCACHE) $(CROSS_COMPILE)gcc
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
@@ -346,6 +339,15 @@ INSTALLKERNEL  := installkernel
 DEPMOD		= /sbin/depmod
 PERL		= perl
 CHECK		= sparse
+
+# Try to always use GNU ld
+ifneq ($(wildcard $(CROSS_COMPILE)ld.bfd),)
+LD		= $(CROSS_COMPILE)ld.bfd
+endif
+
+# Use the wrapper for the compiler.  This wrapper scans for new
+# warnings and causes the build to stop upon encountering them.
+CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
@@ -393,12 +395,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -std=gnu89 \
 		   $(GEN_OPT_FLAGS)
 
-# Thanks gcc!
-KBUILD_CFLAGS   += -Wno-unused-label -Wno-array-bounds -Wno-memset-transposed-args \
-		   -Wno-unused-function -Wno-declaration-after-statement \
-		   -Wno-unused-variable -Wno-parentheses -Wno-maybe-uninitialized \
-		   -Wno-misleading-indentation -Wno-bool-compare -Wno-int-conversion \
-		   -Wno-discarded-qualifiers -Wno-tautological-compare -Wno-incompatible-pointer-types
+# Suppress GCC 6 Warnings
+KBUILD_CFLAGS   += -Wno-unused-variable \
 
 KBUILD_AFLAGS_KERNEL := $(GEN_OPT_FLAGS)
 KBUILD_CFLAGS_KERNEL := $(GEN_OPT_FLAGS)
