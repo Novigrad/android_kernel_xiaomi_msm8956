@@ -6063,6 +6063,7 @@ static int instance_delete(const char *name)
 	free_percpu(tr->trace_buffer.data);
 	ring_buffer_free(tr->trace_buffer.buffer);
 
+	free_cpumask_var(tr->tracing_cpumask);
 	kfree(tr->name);
 	kfree(tr);
 
