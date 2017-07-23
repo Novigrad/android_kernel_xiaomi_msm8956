@@ -99,13 +99,6 @@ extern void ctp_set_gesture_data(int value);
 char tp_lockdown_info[128];
 u8 uc_tp_vendor_id;
 
-#define FT_CHARGING_STATUS
-
-#if defined(FT_CHARGING_STATUS)
-int charging_flag = 0;
-extern int FG_charger_status;
-#endif
-
 static struct i2c_client *fts_proc_entry_i2c_client;
 
 static unsigned char firmware_data[] = {
@@ -592,23 +585,6 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	}
 #endif
 
-#if defined(FT_CHARGING_STATUS)
-
-	if ((FG_charger_status == 1  || FG_charger_status == 4) && (charging_flag == 0)) {
-		charging_flag = 1;
-		ft5x0x_write_reg(data->client, 0x8B, 0x01);
-	} else {
-		if ((FG_charger_status != 1) && (FG_charger_status != 4) && (charging_flag == 1)) {
-			charging_flag = 0;
-			ft5x0x_write_reg(data->client, 0x8B, 0x00);
-		 }
-	}
-
-
-#endif
-
-
-
 	if (!data) {
 		pr_err("%s: Invalid data\n", __func__);
 		return IRQ_HANDLED;
@@ -644,13 +620,13 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 		if (!num_touches && !status && !id)
 			break;
 
+		if (y == 2100 && data->keypad_mode)
+			break;
+
 #ifdef CONFIG_WAKE_GESTURES
 		if (data->suspended)
 			x += 5000;
 #endif
-
-		if (y == 2100 && data->keypad_mode)
-			break;
 
 		input_mt_slot(ip_dev, id);
 		if (status == FT_TOUCH_DOWN || status == FT_TOUCH_CONTACT) {
@@ -925,6 +901,7 @@ static int ft5x06_ts_suspend(struct device *dev)
 		return 0;
 	}
 #endif
+
 	if (data->loading_fw) {
 		dev_info(dev, "Firmware loading in process...\n");
 		return 0;
@@ -996,7 +973,11 @@ static int ft5x06_ts_resume(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	int err;
+
+#ifdef CONFIG_WAKE_GESTURES
 	int i;
+#endif
+
 	if (!data->suspended) {
 		dev_dbg(dev, "Already in awake state\n");
 		return 0;
@@ -1070,15 +1051,6 @@ static int ft5x06_ts_resume(struct device *dev)
 	input_mt_report_pointer_emulation(data->input_dev, false);
 	input_sync(data->input_dev);
 
-#if defined(FT_CHARGING_STATUS)
-
-	if (FG_charger_status == 1 || FG_charger_status == 4)
-		charging_flag = 0;
-	else
-		charging_flag = 1;
-	printk("ft5x06_ts_resume  FG_charger_status=%d\n", FG_charger_status);
-	printk("ft5x06_ts_resume  charging_flag=%d\n", charging_flag);
-#endif
 	return 0;
 }
 
@@ -2308,11 +2280,11 @@ static ssize_t ft5x06_lockdown_store(struct device *dev,
 static DEVICE_ATTR(tp_lock_down_info, (S_IWUSR|S_IRUGO|S_IWUGO), ft5x06_lockdown_show, ft5x06_lockdown_store);
 
 static ssize_t ft5x06_keypad_mode_show(struct device *dev,
- 	struct device_attribute *attr, char *buf)
+	struct device_attribute *attr, char *buf)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
 	int count;
- 	char c = data->keypad_mode ? '0' : '1';
+	char c = data->keypad_mode ? '0' : '1';
 
 	count = sprintf(buf, "%c\n", c);
 
@@ -2981,7 +2953,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	u8 reg_addr;
 	int err, len;
 
-
 #ifdef SUPPORT_READ_TP_VERSION
 	char fw_version[64];
 #endif
@@ -2992,7 +2963,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		printk("%s, other driver has been loaded\n", __func__);
 		return ENODEV;
 	}
-
 
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
@@ -3196,6 +3166,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 #ifdef CONFIG_WAKE_GESTURES
+	ft5x06_ts = data;
 	device_init_wakeup(&client->dev, 1);
 #endif
 
@@ -3223,13 +3194,13 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto free_update_fw_sys;
 	}
 
-    ft5x06_proc_init(data);
-
 	 err = sysfs_create_group(&client->dev.kobj, &ft5x06_ts_attr_group);
 	 if (err) {
 		dev_err(&client->dev, "Failure %d creating sysfs group\n",err);
 		goto free_reset_gpio;
     }
+
+    ft5x06_proc_init(data);
 
 	data->dir = debugfs_create_dir(FT_DEBUG_DIR_NAME, NULL);
 	if (data->dir == NULL || IS_ERR(data->dir)) {
@@ -3377,7 +3348,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 #if defined(CONFIG_TOUCHSCREEN_COVER)
 	ctp_cover_switch_init(lct_ctp_cover_state_switch);
 #endif
-
 
 	is_tp_driver_loaded = 1;
 	printk("%s done\n", __func__);

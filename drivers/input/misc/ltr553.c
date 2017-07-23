@@ -34,6 +34,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
+#include <linux/proximity_state.h>
 
 #define LTR553_I2C_NAME			"ltr553"
 #define LTR553_LIGHT_INPUT_NAME		"ltr553-light"
@@ -184,6 +185,12 @@ static struct regulator_map power_config[] = {
 	{.supply = "vdd", .min_uv = 2000000, .max_uv = 3300000, },
 	{.supply = "vio", .min_uv = 1750000, .max_uv = 1950000, },
 };
+
+static bool ltr_prox_near = false;
+bool prox_near_ltr55x(void)
+{
+	return ltr_prox_near;
+}
 
 static struct pinctrl_config pin_config = {
 	.name = { "default", "sleep" },
@@ -968,9 +975,10 @@ static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 				ps_data[0], ps_data[1]);
 
 		tmp = (ps_data[1] << 8) | ps_data[0];
-		if (tmp & LTR553_PS_SATURATE_MASK)
+		if (tmp & LTR553_PS_SATURATE_MASK) {
 			distance = 0;
-		else {
+			ltr_prox_near = true;
+		} else {
 			for (i = 0; i < ARRAY_SIZE(ps_distance_table); i++) {
 				if (tmp > ps_distance_table[i]) {
 					distance = i;
@@ -978,6 +986,7 @@ static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 				}
 			}
 			distance = i;
+			ltr_prox_near = false;
 		}
 
 		if (distance != ltr->last_ps) {
@@ -1968,7 +1977,7 @@ static int ltr553_probe(struct i2c_client *client,
 		device_init_wakeup(&client->dev, 1);
 
 		ltr->workqueue = alloc_workqueue("ltr553_workqueue",
-				WQ_NON_REENTRANT | WQ_FREEZABLE, 0);
+				WQ_HIGHPRI | WQ_FREEZABLE, 0);
 		INIT_WORK(&ltr->report_work, ltr553_report_work);
 		INIT_WORK(&ltr->als_enable_work, ltr553_als_enable_work);
 		INIT_WORK(&ltr->als_disable_work, ltr553_als_disable_work);

@@ -51,6 +51,7 @@
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
+#include <linux/proximity_state.h>
 #include "linux/stk3x1x.h"
 
 #define DRIVER_VERSION  "3.4.4ts"
@@ -180,6 +181,12 @@
 
 #define STK_FIR_LEN 16
 #define MAX_FIR_LEN 32
+
+static bool stk_prox_near = false;
+bool prox_near_stk3x1x(void)
+{
+	return stk_prox_near;
+}
 
 static struct sensors_classdev sensors_light_cdev = {
 	.name = "stk3x1x-light",
@@ -1337,7 +1344,6 @@ static ssize_t stk_ps_distance_show(struct device *dev, struct device_attribute 
 		return ret;
 	}
     dist = (ret & STK_FLG_NF_MASK)?1:0;
-
     ps_data->ps_distance_last = dist;
 	input_report_abs(ps_data->ps_input_dev, ABS_DISTANCE, dist);
 	input_sync(ps_data->ps_input_dev);
@@ -1872,7 +1878,11 @@ static void stk_work_func(struct work_struct *work)
     {
 		disable_flag |= STK_FLG_PSINT_MASK;
 		near_far_state = (org_flag_reg & STK_FLG_NF_MASK)?1:0;
-
+	if (near_far_state == 0) {
+		stk_prox_near = true;
+	} else {
+		stk_prox_near = false;
+	}
 		ps_data->ps_distance_last = near_far_state;
 		input_report_abs(ps_data->ps_input_dev, ABS_DISTANCE, near_far_state);
 		input_sync(ps_data->ps_input_dev);
@@ -2413,14 +2423,14 @@ static int stk3x1x_probe(struct i2c_client *client,
 	input_set_drvdata(ps_data->ps_input_dev, ps_data);
 
 #ifdef STK_POLL_ALS
-	ps_data->stk_als_wq = create_singlethread_workqueue("stk_als_wq");
+	ps_data->stk_als_wq = alloc_workqueue("stk_als_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
 	INIT_WORK(&ps_data->stk_als_work, stk_als_work_func);
 	hrtimer_init(&ps_data->als_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	ps_data->als_poll_delay = ns_to_ktime(110 * NSEC_PER_MSEC);
 	ps_data->als_timer.function = stk_als_timer_func;
 #endif
 
-	ps_data->stk_ps_wq = create_singlethread_workqueue("stk_ps_wq");
+	ps_data->stk_ps_wq = alloc_workqueue("stk_ps_wq", WQ_HIGHPRI | WQ_FREEZABLE, 0);
 	INIT_WORK(&ps_data->stk_ps_work, stk_ps_work_func);
 	hrtimer_init(&ps_data->ps_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	ps_data->ps_poll_delay = ns_to_ktime(110 * NSEC_PER_MSEC);
