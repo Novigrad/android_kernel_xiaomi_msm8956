@@ -52,7 +52,7 @@
 
 		qcom,initial-pwrlevel = <6>;
 
-		qcom,idle-timeout = <8>; //<HZ/12>
+		qcom,idle-timeout = <25>; //<HZ/12>
 		qcom,strtstp-sleepwake;
 
 		qcom,pm-qos-active-latency = <401>;
@@ -151,7 +151,7 @@
 				/* SUPER TURBO */
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;
-					qcom,gpu-freq = <600000000>;
+					qcom,gpu-freq = <621330000>;
 					qcom,bus-freq = <10>;
 					qcom,bus-min = <10>;
 					qcom,bus-max = <10>;
@@ -254,7 +254,7 @@
 				/* SUPER TURBO */
 				qcom,gpu-pwrlevel@0 {
 					reg = <0>;
-					qcom,gpu-freq = <600000000>;
+					qcom,gpu-freq = <621330000>;
 					qcom,bus-freq = <10>;
 					qcom,bus-min = <10>;
 					qcom,bus-max = <10>;
