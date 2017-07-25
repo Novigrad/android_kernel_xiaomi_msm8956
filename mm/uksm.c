@@ -5057,7 +5057,7 @@ static ssize_t cpu_governor_store(struct kobject *kobj,
 }
 UKSM_ATTR(cpu_governor);
 
-static ssize_t run__show(struct kobject *kobj, struct kobj_attribute *attr,
+static ssize_t run_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
 	return sprintf(buf, "%u\n", uksm_run);
