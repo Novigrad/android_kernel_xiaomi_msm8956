@@ -199,7 +199,7 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <200>;
-			/* qcom,fastchg-current-ma = <3000>; */
+			qcom,fastchg-current-ma = <3000>;
 			qcom,float-voltage-mv = <4400>;
 			qcom,resume-delta-mv = <200>;
 			qcom,chg-inhibit-fg;
@@ -207,6 +207,8 @@
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <3000 2400 1800 1000 0>;
 			qcom,fastchg-current-comp = <900>;
+			/* 11 for 4.2V, 16 for 4.1V */
+			qcom,float-voltage-comp = <11>;
 
 			qcom,force-aicl-rerun;
 			qcom,aicl-rerun-period-s = <180>;
