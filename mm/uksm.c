@@ -183,7 +183,7 @@ static int is_full_zero(const void *s1, size_t len)
 
 #define UKSM_RUNG_ROUND_FINISHED  (1 << 0)
 #define TIME_RATIO_SCALE	10000
-#define SLEEP_MILLISECS		3000
+#define SLEEP_MILLISECS		1000
 
 #define SLOT_TREE_NODE_SHIFT	8
 #define SLOT_TREE_NODE_STORE_SIZE	(1UL << SLOT_TREE_NODE_SHIFT)
@@ -511,7 +511,7 @@ static unsigned long uksm_pages_unshared;
 static unsigned int uksm_sleep_jiffies;
 
 /* Base CPU limit that ratios are scaled against */
-static unsigned int uksm_max_cpu_percentage;
+static unsigned int uksm_max_cpu_percentage = 10;
 
 static int uksm_cpu_governor = 1;
 
