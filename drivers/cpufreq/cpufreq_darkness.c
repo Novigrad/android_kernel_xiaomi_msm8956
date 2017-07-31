@@ -1486,7 +1486,7 @@ static int __init cpufreq_darkness_init(void)
 	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
 #ifndef CONFIG_STATE_NOTIFIER
-	display_on = true
+	display_on = true;
 #endif
 
 	/* Initalize per-cpu timers */
