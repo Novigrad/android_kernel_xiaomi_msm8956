@@ -78,8 +78,7 @@ struct gf_key_map key_map[] = {
 
 
 /**************************debug******************************/
-#define GF_DEBUG
-/*#undef  GF_DEBUG*/
+#undef GF_DEBUG
 
 #ifdef GF_DEBUG
 #define gf_dbg(fmt, args...) do { \
@@ -100,7 +99,9 @@ static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 static struct gf_dev gf;
 
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 extern int kenzo_fpsensor;
+#endif
 
 static int driver_init_partial(struct gf_dev *gf_dev);
 
@@ -262,6 +263,7 @@ static int gfspi_ioctl_clk_uninit(struct gf_dev *data)
 #endif
 
 int recurs = 0;
+unsigned int delay = 0;
 
 static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -273,7 +275,6 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #ifdef AP_CONTROL_CLK
 	unsigned int speed = 0;
 #endif
-	unsigned int delay = 0;
 
 	if (_IOC_TYPE(cmd) != GF_IOC_MAGIC) {
 		return -ENODEV;
@@ -439,11 +440,11 @@ static long gf_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long a
 static irqreturn_t gf_irq(int irq, void *handle)
 {
 #ifdef GF_FASYNC
-	{
-		struct gf_dev *gf_dev = &gf;
-		if (gf_dev->async)
-			kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
-	}
+{
+	struct gf_dev *gf_dev = &gf;
+	if (gf_dev->async)
+		kill_fasync(&gf_dev->async, SIGIO, POLL_IN);
+}
 #endif
 
 #ifdef GF_NETLINK_ENABLE
@@ -468,7 +469,7 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 
 	if (val != FB_EARLY_EVENT_BLANK)
 		return 0;
-	pr_info("[info] %s go to the goodix_fb_state_chg_callback value = %d\n",
+	pr_debug("[info] %s go to the goodix_fb_state_chg_callback value = %d\n",
 			__func__, (int)val);
 	gf_dev = container_of(nb, struct gf_dev, notifier);
 	if (evdata && evdata->data && val == FB_EARLY_EVENT_BLANK && gf_dev) {
@@ -507,7 +508,7 @@ static int goodix_fb_state_chg_callback(struct notifier_block *nb,
 			}
 			break;
 		default:
-			pr_info("%s defalut\n", __func__);
+			pr_debug("%s default\n", __func__);
 			break;
 		}
 	}
@@ -586,6 +587,7 @@ static int driver_init_partial(struct gf_dev *gf_dev)
 	gf_power_on(gf_dev);
 	gf_hw_reset(gf_dev, 360);
 	gf_dev->device_available = 1;
+
 	sched_set_boost(1);
 	sched_set_boost(0);
 
@@ -737,10 +739,12 @@ static int gf_probe(struct platform_device *pdev)
 #endif
 	FUNC_ENTRY();
 
+#ifdef CONFIG_MACH_XIAOMI_KENZO
 	if (kenzo_fpsensor != 2) {
 		pr_err("board no gdx fpsensor\n");
 		return -ENODEV;
 	}
+#endif
 
 	/* Initialize the driver data */
 	INIT_LIST_HEAD(&gf_dev->device_entry);
