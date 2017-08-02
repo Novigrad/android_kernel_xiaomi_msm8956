@@ -101,4 +101,5 @@ build/*.zip
 build/dtb
 build/zImage
 build/wlan.ko
-arch/arm64/boot/Image.lz4
+arch/arm64/boot/Image.*
+arch/arm64/boot/dt.*
