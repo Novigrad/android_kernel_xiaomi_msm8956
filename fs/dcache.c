@@ -78,7 +78,7 @@
  *   dentry1->d_lock
  *     dentry2->d_lock
  */
-int sysctl_vfs_cache_pressure __read_mostly = 40;
+int sysctl_vfs_cache_pressure __read_mostly = 100;
 EXPORT_SYMBOL_GPL(sysctl_vfs_cache_pressure);
 
 static __cacheline_aligned_in_smp DEFINE_SPINLOCK(dcache_lru_lock);
@@ -915,7 +915,7 @@ static void shrink_dcache_for_umount_subtree(struct dentry *dentry)
 
 			if (dentry->d_count != 0) {
 				printk(KERN_ERR
-				       "BUG: Dentry %pK{i=%lx,n=%s}"
+				       "BUG: Dentry %p{i=%lx,n=%s}"
 				       " still in use (%d)"
 				       " [unmount of %s %s]\n",
 				       dentry,
