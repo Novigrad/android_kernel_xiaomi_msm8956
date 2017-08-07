@@ -207,11 +207,7 @@ static VOS_STATUS hdd_parse_ese_beacon_req(tANI_U8 *pValue,
 #define NUM_OF_STA_DATA_TO_PRINT 16
 
 #ifdef WLAN_FEATURE_RMC
-#ifdef CONFIG_MACH_XIAOMI_KENZO
-#define WLAN_NLINK_CESIUM 29
-#else
 #define WLAN_NLINK_CESIUM 30
-#endif
 #endif
 
 //wait time for beacon miss rate.
@@ -11793,6 +11789,7 @@ int hdd_wlan_startup(struct device *dev )
    pHddCtx->last_scan_reject_session_id = 0xFF;
    pHddCtx->last_scan_reject_reason = 0;
    pHddCtx->last_scan_reject_timestamp = 0;
+   pHddCtx->scan_reject_cnt = 0;
 
    init_completion(&pHddCtx->full_pwr_comp_var);
    init_completion(&pHddCtx->standby_comp_var);
