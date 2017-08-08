@@ -34,7 +34,6 @@
 #include <linux/fb.h>
 #include <asm/cputime.h>
 #include <linux/state_notifier.h>
-static struct notifier_block interactive_state_notif;
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
@@ -83,35 +82,10 @@ static int set_window_count;
 static int migration_register_count;
 static struct mutex sched_lock;
 
-static struct notifier_block fb_notif;
-static bool display_on = true;
-
-static int fb_notifier_callback(struct notifier_block *self,
-			unsigned long event, void *data)
-{
-	struct fb_event *evdata = data;
-	int *blank;
-
-	if (evdata && evdata->data && event == FB_EVENT_BLANK) {
-		blank = evdata->data;
-		switch (*blank) {
-			case FB_BLANK_UNBLANK:
-				/* display on */
-				display_on = true;
-				break;
-			case FB_BLANK_POWERDOWN:
-			case FB_BLANK_HSYNC_SUSPEND:
-			case FB_BLANK_VSYNC_SUSPEND:
-			case FB_BLANK_NORMAL:
-				/* display off */
-				display_on = false;
-				break;
-		}
-	}
-	return 0;
-}
-
+/* State Notifier Support */
 static bool suspended = false;
+static struct notifier_block interactive_state_notif;
+
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
@@ -502,10 +476,10 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 	spin_lock_irqsave(&ppol->load_lock, flags);
 	ppol->last_evaluated_jiffy = get_jiffies_64();
 
-	if (display_on
+	if (!suspended
 		&& tunables->timer_rate != tunables->prev_timer_rate)
 		tunables->timer_rate = tunables->prev_timer_rate;
-	else if (!display_on
+	else if (suspended
 		&& tunables->timer_rate != tunables->sleep_timer_rate) {
 		tunables->prev_timer_rate = tunables->timer_rate;
 		tunables->timer_rate
@@ -735,13 +709,13 @@ static int cpufreq_interactive_speedchange_task(void *data)
 				continue;
 			}
 
-			if (unlikely(!display_on)) {
+			if (unlikely(suspended)) {
 			    if (ppol->target_freq > tunables->screen_off_max)
 				ppol->target_freq = tunables->screen_off_max;
 			}
 
 			if (ppol->target_freq != ppol->policy->cur) {
-			    if (tunables->powersave_bias || !display_on)
+			    if (tunables->powersave_bias || suspended)
 				    __cpufreq_driver_target(ppol->policy,
 							    ppol->target_freq,
 							    CPUFREQ_RELATION_C);
@@ -1994,11 +1968,6 @@ static int __init cpufreq_interactive_init(void)
 	/* NB: wake up so the thread does not look hung to the freezer */
 	wake_up_process(speedchange_task);
 
-	/* register callback for screen on/off notifier */
-	fb_notif.notifier_call = fb_notifier_callback;
-	if (fb_register_client(&fb_notif) != 0)
-		pr_err("%s: Failed to register fb callback\n", __func__);
-
 	return cpufreq_register_governor(&cpufreq_gov_interactive);
 }
 
@@ -2016,8 +1985,8 @@ static void __exit cpufreq_interactive_exit(void)
 	kthread_stop(speedchange_task);
 	put_task_struct(speedchange_task);
 
-	/* unregister screen notifier */
-	fb_unregister_client(&fb_notif);
+	/* Unregister Interactive to State Notifier */
+	state_unregister_client(&interactive_state_notif);
 
 	for_each_possible_cpu(cpu)
 		free_policyinfo(cpu);

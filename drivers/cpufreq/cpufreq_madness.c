@@ -15,29 +15,33 @@
 
 #include <linux/slab.h>
 #include "cpufreq_governor.h"
-#include <linux/display_state.h>
+#include <linux/state_notifier.h>
 
 /* Madness version macros */
-#define MADNESS_VERSION_MAJOR			(1)
-#define MADNESS_VERSION_MINOR			(3)
+#define MADNESS_VERSION_MAJOR	(1)
+#define MADNESS_VERSION_MINOR	(3)
 
 /* Madness governor macros */
-#define DEF_FREQUENCY_UP_THRESHOLD		(85)
-#define DEF_FREQUENCY_DOWN_THRESHOLD		(35)
+#define DEF_FREQUENCY_UP_THRESHOLD				(85)
+#define DEF_FREQUENCY_DOWN_THRESHOLD			(35)
 #define DEF_FREQUENCY_DOWN_THRESHOLD_SUSPENDED	(45)
-#define DEF_FREQUENCY_STEP			(5)
-#define DEF_SAMPLING_RATE			(20000)
-#define DEF_BOOST_ENABLED			(1)
-#define DEF_BOOST_COUNT				(8)
-#define DEF_BOOST_CEILING			(12)
+#define DEF_FREQUENCY_STEP						(5)
+#define DEF_SAMPLING_RATE						(20000)
+#define DEF_BOOST_ENABLED						(1)
+#define DEF_BOOST_COUNT							(8)
+#define DEF_BOOST_CEILING						(12)
 
 static DEFINE_PER_CPU(struct cs_cpu_dbs_info_s, cs_cpu_dbs_info);
 static DEFINE_PER_CPU(struct cs_dbs_tuners *, cached_tuners);
 
+/* State Notifier Support */
+static struct notifier_block madness_state_notif;
+static bool suspended = false;
+
 static unsigned int boost_counter = 0;
 
 static inline unsigned int get_freq_target(struct cs_dbs_tuners *cs_tuners,
-					   struct cpufreq_policy *policy)
+	struct cpufreq_policy *policy)
 {
 	unsigned int freq_target = (cs_tuners->freq_step * policy->max) / 100;
 
@@ -64,11 +68,8 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
 
-	/* Create display state boolean */
-	bool display_on = is_display_on();
-
 	/* Once min frequency is reached while screen off, stop taking load samples*/
-	if (!display_on && policy->cur == policy->min)
+	if (suspended && policy->cur == policy->min)
 		return;
 
 	/*
@@ -79,7 +80,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		return;
 
 	/* Check for frequency decrease */
-	if (display_on && load < cs_tuners->down_threshold) {
+	if (!suspended && load < cs_tuners->down_threshold) {
 		unsigned int freq_target;
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
@@ -101,7 +102,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		__cpufreq_driver_target(policy, dbs_info->requested_freq,
 				CPUFREQ_RELATION_L);
 		return;
-	} else if (!display_on && load <= cs_tuners->down_threshold_suspended) {
+	} else if (suspended && load <= cs_tuners->down_threshold_suspended) {
 		unsigned int freq_target;
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
@@ -130,7 +131,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			return;
 
 		/* if display is off then break out early */
-		if (!display_on)
+		if (suspended)
 			return;
 
 		/* Boost if count is reached, otherwise increase freq */
@@ -264,146 +265,21 @@ static ssize_t store_down_threshold_suspended(struct dbs_data *dbs_data, const c
 	return count;
 }
 
-static ssize_t store_ignore_nice_load(struct dbs_data *dbs_data,
-		const char *buf, size_t count)
-{
-	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
-	unsigned int input, j;
-	int ret;
-
-	ret = sscanf(buf, "%u", &input);
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input > 1)
-		input = 1;
-
-	if (input == cs_tuners->ignore_nice_load) /* nothing to do */
-		return count;
-
-	cs_tuners->ignore_nice_load = input;
-
-	/* we need to re-evaluate prev_cpu_idle */
-	for_each_online_cpu(j) {
-		struct cs_cpu_dbs_info_s *dbs_info;
-		dbs_info = &per_cpu(cs_cpu_dbs_info, j);
-		dbs_info->cdbs.prev_cpu_idle = get_cpu_idle_time(j,
-					&dbs_info->cdbs.prev_cpu_wall, 0);
-		if (cs_tuners->ignore_nice_load)
-			dbs_info->cdbs.prev_cpu_nice =
-				kcpustat_cpu(j).cpustat[CPUTIME_NICE];
-	}
-	return count;
-}
-
-static ssize_t store_freq_step(struct dbs_data *dbs_data, const char *buf,
-		size_t count)
-{
-	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input > 100)
-		input = 100;
-
-	/*
-	 * no need to test here if freq_step is zero as the user might actually
-	 * want this, they would be crazy though :)
-	 */
-	cs_tuners->freq_step = input;
-	return count;
-}
-
-static ssize_t store_boost_enabled(struct dbs_data *dbs_data, const char *buf,
-		size_t count)
-{
-	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input >= 1)
-		input = 1;
-	else
-		input = 0;
-
-	cs_tuners->boost_enabled = input;
-	return count;
-}
-
-static ssize_t store_boost_count(struct dbs_data *dbs_data, const char *buf,
-		size_t count)
-{
-	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input < 1)
-		input = 0;
-
-	cs_tuners->boost_count = input;
-	return count;
-}
-
-static ssize_t store_boost_ceiling(struct dbs_data *dbs_data, const char *buf,
-		size_t count)
-{
-	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
-	unsigned int input;
-	int ret;
-	ret = sscanf(buf, "%u", &input);
-
-	if (ret != 1)
-		return -EINVAL;
-
-	if (input < 1)
-		input = 0;
-
-	cs_tuners->boost_ceiling = input;
-	return count;
-}
-
 show_store_one(cs, sampling_rate);
 show_store_one(cs, up_threshold);
 show_store_one(cs, down_threshold);
 show_store_one(cs, down_threshold_suspended);
-show_store_one(cs, ignore_nice_load);
-show_store_one(cs, freq_step);
-show_store_one(cs, boost_enabled);
-show_store_one(cs, boost_count);
-show_store_one(cs, boost_ceiling);
 
 gov_sys_pol_attr_rw(sampling_rate);
 gov_sys_pol_attr_rw(up_threshold);
 gov_sys_pol_attr_rw(down_threshold);
 gov_sys_pol_attr_rw(down_threshold_suspended);
-gov_sys_pol_attr_rw(ignore_nice_load);
-gov_sys_pol_attr_rw(freq_step);
-gov_sys_pol_attr_rw(boost_enabled);
-gov_sys_pol_attr_rw(boost_count);
-gov_sys_pol_attr_rw(boost_ceiling);
 
 static struct attribute *dbs_attributes_gov_sys[] = {
 	&sampling_rate_gov_sys.attr,
 	&up_threshold_gov_sys.attr,
 	&down_threshold_gov_sys.attr,
 	&down_threshold_suspended_gov_sys.attr,
-	&ignore_nice_load_gov_sys.attr,
-	&freq_step_gov_sys.attr,
-	&boost_enabled_gov_sys.attr,
-	&boost_count_gov_sys.attr,
-	&boost_ceiling_gov_sys.attr,
 	NULL
 };
 
@@ -417,11 +293,6 @@ static struct attribute *dbs_attributes_gov_pol[] = {
 	&up_threshold_gov_pol.attr,
 	&down_threshold_gov_pol.attr,
 	&down_threshold_suspended_gov_pol.attr,
-	&ignore_nice_load_gov_pol.attr,
-	&freq_step_gov_pol.attr,
-	&boost_enabled_gov_pol.attr,
-	&boost_count_gov_pol.attr,
-	&boost_ceiling_gov_pol.attr,
 	NULL
 };
 
@@ -544,8 +415,33 @@ struct cpufreq_governor cpufreq_gov_madness = {
 	.owner			= THIS_MODULE,
 };
 
+static int state_notifier_callback(struct notifier_block *this,
+	unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init cpufreq_gov_dbs_init(void)
 {
+	/* Register Madness to State Notifier */
+	madness_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&madness_state_notif))
+		pr_err("Failed to register State notifier callback\n");
+
 	return cpufreq_register_governor(&cpufreq_gov_madness);
 }
 
@@ -554,6 +450,10 @@ static void __exit cpufreq_gov_dbs_exit(void)
 	int cpu;
 
 	cpufreq_unregister_governor(&cpufreq_gov_madness);
+
+	/* Unregister Madness to State Notifier */
+	state_unregister_client(&madness_state_notif);
+
 	for_each_possible_cpu(cpu) {
 		kfree(per_cpu(cached_tuners, cpu));
 		per_cpu(cached_tuners, cpu) = NULL;
