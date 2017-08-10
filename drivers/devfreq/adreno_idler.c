@@ -30,7 +30,7 @@
 
 #include <linux/module.h>
 #include <linux/devfreq.h>
-#include <linux/display_state.h>
+#include <linux/state_notifier.h>
 #include <linux/msm_adreno_devfreq.h>
 
 #define ADRENO_IDLER_MAJOR_VERSION 1
@@ -62,16 +62,15 @@ module_param_named(adreno_idler_active, adreno_idler_active, bool, 0664);
 
 static unsigned int idlecount = 0;
 
-/* Boolean to let us know if the display is on*/
-static bool display_on;
+/* State Notifier Support */
+static struct notifier_block adrenoidler_state_notif;
+static bool suspended = false;
 
 int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
 		 unsigned long *freq)
 {
 	if (!adreno_idler_active)
 		return 0;
-
-	display_on = is_display_on();
 
 	if (stats.busy_time < idleworkload) {
 		/* busy_time >= idleworkload should be considered as a non-idle workload. */
@@ -88,7 +87,7 @@ int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
 			idlecount--;
 			return 1;
 		}
-	} else if (!display_on) {
+	} else if (suspended) {
 		/* GPU shouldn't be used for much while display is off, so ramp down the frequency */
 		*freq = devfreq->profile->freq_table[devfreq->profile->max_state - 1];
 		return 1;
@@ -102,11 +101,36 @@ int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
 }
 EXPORT_SYMBOL(adreno_idler);
 
+static int state_notifier_callback(struct notifier_block *this,
+	unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init adreno_idler_init(void)
 {
 	pr_info("adreno_idler: version %d.%d by arter97\n",
 		 ADRENO_IDLER_MAJOR_VERSION,
 		 ADRENO_IDLER_MINOR_VERSION);
+
+	/* Register Adreno Idler to State Notifier */
+	adrenoidler_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&adrenoidler_state_notif))
+		pr_err("Failed to register State notifier callback\n");
 
 	return 0;
 }
@@ -114,6 +138,9 @@ subsys_initcall(adreno_idler_init);
 
 static void __exit adreno_idler_exit(void)
 {
+	/* Unregister Adreno Idler to State Notifier */
+	state_unregister_client(&adrenoidler_state_notif);
+
 	return;
 }
 module_exit(adreno_idler_exit);

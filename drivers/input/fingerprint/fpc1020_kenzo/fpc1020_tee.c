@@ -44,7 +44,7 @@
 #include <linux/platform_device.h>
 #include <linux/wakelock.h>
 #include <linux/input.h>
-#include <linux/display_state.h>
+#include <linux/state_notifier.h>
 
 #define KEY_FINGERPRINT 0x2ee
 
@@ -53,6 +53,9 @@
 #define FPC1020_RESET_HIGH2_US 1250
 #define FPC_TTW_HOLD_TIME 1000
 
+/* State Notifier Support */
+static struct notifier_block fpc_state_notif;
+static bool suspended = false;
 
 struct vreg_config {
 	char *name;
@@ -289,7 +292,7 @@ static irqreturn_t fpc1020_irq_handler(int irq, void *handle)
 
 	sysfs_notify(&fpc1020->dev->kobj, NULL, dev_attr_irq.attr.name);
 
-	if (!is_display_on()) {
+	if (suspended) {
 		sched_set_boost(1);
 		input_report_key(fpc1020->input_dev, KEY_FINGERPRINT, 1);
 		input_sync(fpc1020->input_dev);
@@ -458,6 +461,26 @@ static struct platform_driver fpc1020_driver = {
 	.resume = fpc1020_resume,
 };
 
+static int state_notifier_callback(struct notifier_block *this,
+	unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init fpc1020_init(void)
 {
 	int rc = platform_driver_register(&fpc1020_driver);
@@ -466,12 +489,20 @@ static int __init fpc1020_init(void)
 	else
 		pr_err("%s %d\n", __func__, rc);
 	return rc;
+
+	/* Register FPC to State Notifier */
+	fpc_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&fpc_state_notif))
+		pr_err("Failed to register State notifier callback\n");
 }
 
 static void __exit fpc1020_exit(void)
 {
 	pr_info("%s\n", __func__);
 	platform_driver_unregister(&fpc1020_driver);
+
+	/* Unregister FPC to State Notifier */
+	state_unregister_client(&fpc_state_notif);
 }
 
 module_init(fpc1020_init);

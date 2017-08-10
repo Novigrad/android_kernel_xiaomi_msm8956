@@ -17,7 +17,7 @@
 #include <linux/types.h>
 #include <trace/events/power.h>
 #include <linux/moduleparam.h>
-#include <linux/display_state.h>
+#include <linux/state_notifier.h>
 
 #include "power.h"
 
@@ -45,6 +45,10 @@ static bool enable_wlan_extscan_wl_ws = true;
 module_param(enable_wlan_extscan_wl_ws, bool, 0644);
 static bool enable_si_ws = true;
 module_param(enable_si_ws, bool, 0644);
+
+/* State Notifier Support */
+static struct notifier_block wakeup_state_notif;
+static bool suspended = false;
 
 /*
  * If set, the suspend/hibernate code will abort transitions to a sleep state
@@ -808,7 +812,7 @@ void pm_print_active_wakeup_sources(void)
 	struct wakeup_source *last_activity_ws = NULL;
 
 	// kinda pointless to force this routine during screen on
-	if (is_display_on())
+	if (!suspended)
 		return;
 
 	rcu_read_lock();
@@ -1091,10 +1095,36 @@ static const struct file_operations wakeup_sources_stats_fops = {
 	.release = single_release,
 };
 
+static int state_notifier_callback(struct notifier_block *this,
+	unsigned long event, void *data)
+{
+	if (!suspended)
+		return NOTIFY_OK;
+
+	switch (event) {
+		case STATE_NOTIFIER_ACTIVE:
+			suspended = false;
+			break;
+		case STATE_NOTIFIER_SUSPEND:
+			suspended = true;
+			break;
+		default:
+			break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int __init wakeup_sources_debugfs_init(void)
 {
 	wakeup_sources_stats_dentry = debugfs_create_file("wakeup_sources",
 			S_IRUGO, NULL, NULL, &wakeup_sources_stats_fops);
+
+	/* Register Wakeup to State Notifier */
+	wakeup_state_notif.notifier_call = state_notifier_callback;
+	if (state_register_client(&wakeup_state_notif))
+		pr_err("Failed to register State notifier callback\n");
+
 	return 0;
 }
 
