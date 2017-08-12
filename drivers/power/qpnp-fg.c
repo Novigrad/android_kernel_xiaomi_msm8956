@@ -1,5 +1,4 @@
 /* Copyright (c) 2014, 2017 The Linux Foundation. All rights reserved.
- * Copyright (C) 2016 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -236,9 +235,9 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(TERM_CURRENT,	 0x40C,   2,      250),
 	SETTING(CHG_TERM_CURRENT, 0x4F8,   2,      250),
 	SETTING(IRQ_VOLT_EMPTY,	 0x458,   3,      3100),
-	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3400),
+	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3200),
 	SETTING(VBAT_EST_DIFF,	 0x000,   0,      30),
-	SETTING(DELTA_SOC,	 0x450,   3,      2),
+	SETTING(DELTA_SOC,	 0x450,   3,      1),
 	SETTING(SOC_MAX,	 0x458,   1,      85),
 	SETTING(SOC_MIN,	 0x458,   2,      15),
 	SETTING(BATT_LOW,	 0x458,   0,      4200),
@@ -268,7 +267,7 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	DATA(BATT_ID_INFO,    0x594,   3,      1,     -EINVAL),
 };
 
-static int fg_debug_mask = 0;
+static int fg_debug_mask;
 module_param_named(
 	debug_mask, fg_debug_mask, int, S_IRUSR | S_IWUSR
 );
@@ -462,7 +461,6 @@ struct fg_chip {
 	u32			cc_cv_threshold_mv;
 	unsigned int		batt_profile_len;
 	unsigned int		batt_max_voltage_uv;
-	unsigned int		batt_capacity_mah;
 	const char		*batt_type;
 	const char		*batt_psy_name;
 	unsigned long		last_sram_update_time;
@@ -498,7 +496,6 @@ struct fg_chip {
 	bool			init_done;
 	int			cold_hysteresis;
 	int			hot_hysteresis;
-	int			last_soc;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -1505,7 +1502,10 @@ static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
 
 static int soc_to_setpoint(int soc)
 {
-	return DIV_ROUND_CLOSEST(soc * 255, 100);
+	if (soc == 0)
+		return 1;
+	else
+		return DIV_ROUND_CLOSEST(soc * 255, 100);
 }
 
 static void batt_to_setpoint_adc(int vbatt_mv, u8 *data)
@@ -1679,7 +1679,7 @@ static int get_monotonic_soc_raw(struct fg_chip *chip)
 }
 
 #define EMPTY_CAPACITY		0
-#define DEFAULT_CAPACITY	1
+#define DEFAULT_CAPACITY	-2
 #define MISSING_CAPACITY	100
 #define FULL_CAPACITY		100
 #define FULL_SOC_RAW		0xFF
@@ -1690,10 +1690,8 @@ static int get_prop_capacity(struct fg_chip *chip)
 	if (chip->battery_missing)
 		return MISSING_CAPACITY;
 #ifndef CONFIG_MACH_XIAOMI_KENZO
-	if (!chip->profile_loaded && !chip->use_otp_profile) {
-		pr_info("loading batt profile, return last soc\n");
-		return chip->last_soc;
-	}
+	if (!chip->profile_loaded && !chip->use_otp_profile)
+		return DEFAULT_CAPACITY;
 #endif
 	if (chip->charge_full)
 		return FULL_CAPACITY;
@@ -1711,38 +1709,6 @@ static int get_prop_capacity(struct fg_chip *chip)
 	return DIV_ROUND_CLOSEST((msoc - 1) * (FULL_CAPACITY - 2),
 			FULL_SOC_RAW - 2) + 1;
 }
-
-static int get_last_soc(struct fg_chip *chip)
-{
-	u8 cap[2];
-	int rc, capacity = 0, tries = 0;
-
-	while (tries < MAX_TRIES_SOC) {
-		rc = fg_read(chip, cap,
-				chip->soc_base + SOC_MONOTONIC_SOC, 2);
-		if (rc) {
-			pr_err("spmi read failed: addr=%03x, rc=%d\n",
-				chip->soc_base + SOC_MONOTONIC_SOC, rc);
-			return rc;
-		}
-
-		if (cap[0] == cap[1])
-			break;
-
-		tries++;
-	}
-
-	if (tries == MAX_TRIES_SOC) {
-		pr_err("shadow registers do not match\n");
-		return DEFAULT_CAPACITY;
-	}
-
-	if (cap[0] > 0)
-		capacity = (cap[0] * 100 / FULL_PERCENT);
-
-	return capacity;
-}
-
 
 #define HIGH_BIAS	3
 #define MED_BIAS	BIT(1)
@@ -1807,13 +1773,8 @@ static int set_prop_jeita_temp(struct fg_chip *chip,
 
 	cancel_delayed_work_sync(
 		&chip->update_jeita_setting);
-	if (charging_detected()) {
-		schedule_delayed_work(
-			&chip->update_jeita_setting, 0);
-	} else {
-		queue_delayed_work(system_power_efficient_wq,
-			&chip->update_jeita_setting, 0);
-	}
+	mod_fwd_delayed_work(system_power_efficient_wq,
+		&chip->update_jeita_setting, 0);
 
 	return rc;
 }
@@ -2056,7 +2017,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 
 	if (battid_valid) {
 		complete_all(&chip->batt_id_avail);
-		*resched_ms = clamp(fg_sram_update_period_ms, 3000, 30000);
+		*resched_ms = fg_sram_update_period_ms;
 	} else {
 		*resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 	}
@@ -2089,15 +2050,9 @@ wait:
 	update_sram_data(chip, &resched_ms);
 
 out:
-	if (charging_detected()) {
-		schedule_delayed_work(
-			&chip->update_sram_data,
-			msecs_to_jiffies(resched_ms));
-	} else {
-		queue_delayed_work(system_power_efficient_wq,
-			&chip->update_sram_data,
-			msecs_to_jiffies(resched_ms));
-	}
+	mod_fwd_delayed_work(system_power_efficient_wq,
+		&chip->update_sram_data,
+		msecs_to_jiffies(resched_ms));
 }
 
 #define BATT_TEMP_OFFSET	3
@@ -2176,17 +2131,9 @@ out:
 		if (rc)
 			pr_err("failed to write BATT_TEMP_OFF rc=%d\n", rc);
 	}
-
-	if (charging_detected()) {
-		schedule_delayed_work(
-			&chip->update_temp_work,
-			msecs_to_jiffies(TEMP_PERIOD_UPDATE_MS));
-	} else {
-		queue_delayed_work(system_power_efficient_wq,
-			&chip->update_temp_work,
-			msecs_to_jiffies(TEMP_PERIOD_UPDATE_MS));
-	}
-
+	schedule_delayed_work(
+		&chip->update_temp_work,
+		msecs_to_jiffies(TEMP_PERIOD_UPDATE_MS));
 	fg_relax(&chip->update_temp_wakeup_source);
 }
 
@@ -2693,10 +2640,10 @@ static int fg_power_get_property(struct power_supply *psy,
 			val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = chip->batt_capacity_mah * 1000;
+		val->intval = chip->nom_cap_uah;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
-		val->intval = chip->batt_capacity_mah * 1000;
+		val->intval = chip->learning_data.learned_cc_uah;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
 		val->intval = chip->learning_data.cc_uah;
@@ -2938,19 +2885,19 @@ static int fg_cap_learning_process_full_data(struct fg_chip *chip)
 		goto fail;
 	}
 
-	cc_soc_delta_pc = DIV_ROUND_CLOSEST(
-			abs(cc_pc_val - chip->learning_data.init_cc_pc_val)
-			* 100, FULL_PERCENT_28BIT);
+	cc_soc_delta_pc = abs(cc_pc_val - chip->learning_data.init_cc_pc_val);
+	cc_soc_delta_pc *= 100;
+
+	cc_soc_delta_pc = div64_s64(cc_soc_delta_pc, FULL_PERCENT_28BIT);
 
 	delta_cc_uah = div64_s64(
-			chip->learning_data.learned_cc_uah * cc_soc_delta_pc,
+			chip->nom_cap_uah * cc_soc_delta_pc,
 			100);
 	chip->learning_data.cc_uah = delta_cc_uah + chip->learning_data.cc_uah;
 
-	if (fg_debug_mask & FG_AGING)
-		pr_info("current cc_soc=%d cc_soc_pc=%d total_cc_uah = %lld\n",
-				cc_pc_val, cc_soc_delta_pc,
-				chip->learning_data.cc_uah);
+	pr_info("current cc_soc=%d cc_soc_pc=%d total_cc_uah = %lld\n",
+		cc_pc_val, cc_soc_delta_pc,
+		chip->learning_data.cc_uah);
 
 	return 0;
 
@@ -3052,7 +2999,7 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 {
 	int64_t max_inc_val, min_dec_val, old_cap;
 
-	max_inc_val = chip->learning_data.learned_cc_uah
+	max_inc_val = chip->nom_cap_uah
 			* (1000 + chip->learning_data.max_increment);
 	do_div(max_inc_val, 1000);
 
@@ -3070,10 +3017,9 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 			chip->learning_data.cc_uah;
 
 	fg_cap_learning_save_data(chip);
-	if (fg_debug_mask & FG_AGING)
-		pr_info("final cc_uah = %lld, learned capacity %lld -> %lld uah\n",
-				chip->learning_data.cc_uah,
-				old_cap, chip->learning_data.learned_cc_uah);
+	pr_info("final cc_uah = %lld, learned capacity %lld -> %lld uah\n",
+		chip->learning_data.cc_uah,
+		old_cap, chip->learning_data.learned_cc_uah);
 }
 
 static int get_vbat_est_diff(struct fg_chip *chip)
@@ -3153,8 +3099,7 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 
 			chip->learning_data.init_cc_pc_val = cc_pc_val;
 			chip->learning_data.active = true;
-			if (fg_debug_mask & FG_AGING)
-				pr_info("SW_CC_SOC based learning init_CC_SOC=%d\n",
+			pr_info("SW_CC_SOC based learning init_CC_SOC=%d\n",
 					chip->learning_data.init_cc_pc_val);
 		} else {
 			rc = fg_mem_masked_write(chip, CBITS_INPUT_FILTER_REG,
@@ -3342,14 +3287,9 @@ static void status_change_work(struct work_struct *work)
 		 */
 		if (chip->last_sram_update_time + 5 < current_time) {
 			cancel_delayed_work(&chip->update_sram_data);
-			if (charging_detected()) {
-				schedule_delayed_work(&chip->update_sram_data,
-					msecs_to_jiffies(0));
-			} else {
-				queue_delayed_work(system_power_efficient_wq,
-					&chip->update_sram_data,
-					msecs_to_jiffies(0));
-			}
+			mod_fwd_delayed_work(system_power_efficient_wq,
+				&chip->update_sram_data,
+				msecs_to_jiffies(0));
 		}
 		if (chip->cyc_ctr.en)
 			schedule_work(&chip->cycle_count_work);
@@ -3844,23 +3784,13 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 			INIT_COMPLETION(chip->batt_id_avail);
 			schedule_work(&chip->batt_profile_init);
 			cancel_delayed_work(&chip->update_sram_data);
-			if (charging_detected()) {
-				schedule_delayed_work(
-					&chip->update_sram_data,
-					msecs_to_jiffies(0));
-			} else {
-				queue_delayed_work(system_power_efficient_wq,
-					&chip->update_sram_data,
-					msecs_to_jiffies(0));
-			}
+			mod_fwd_delayed_work(system_power_efficient_wq,
+				&chip->update_sram_data,
+				msecs_to_jiffies(0));
 		} else {
 			chip->battery_missing = false;
 		}
 	}
-
-	if (fg_debug_mask & FG_IRQS)
-		pr_info("batt-missing triggered: %s\n",
-				batt_missing ? "missing" : "present");
 
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
@@ -3961,14 +3891,9 @@ static irqreturn_t fg_empty_soc_irq_handler(int irq, void *_chip)
 		pr_info("triggered 0x%x\n", soc_rt_sts);
 	if (fg_is_batt_empty(chip)) {
 		fg_stay_awake(&chip->empty_check_wakeup_source);
-		if (charging_detected()) {
-			schedule_delayed_work(&chip->check_empty_work,
-				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
-		} else {
-			queue_delayed_work(system_power_efficient_wq,
-				&chip->check_empty_work,
-				msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
-		}
+		mod_fwd_delayed_work(system_power_efficient_wq,
+			&chip->check_empty_work,
+			msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
 	} else {
 		chip->soc_empty = false;
 	}
@@ -4556,12 +4481,6 @@ wait:
 
 	if (rc)
 		pr_warn("couldn't find battery max voltage\n");
-
-	rc = of_property_read_u32(profile_node, "qcom,nom-batt-capacity-mah",
-					&chip->batt_capacity_mah);
-
-	if (rc)
-		pr_warn("couldn't find battery capacity\n");
 
 	/*
 	 * Only configure from profile if fg-cc-cv-threshold-mv is not
@@ -5183,7 +5102,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 				return rc;
 			}
 
-			enable_irq(chip->soc_irq[DELTA_SOC].irq);
+			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
 			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
 			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
 			break;
@@ -5820,7 +5739,7 @@ static int fg_common_hw_init(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_DELTA_SOC].address, 0xFF,
-			settings[FG_MEM_DELTA_SOC].value,
+			settings[FG_MEM_DELTA_SOC].value == 1 ? 1 : soc_to_setpoint(settings[FG_MEM_DELTA_SOC].value),
 			settings[FG_MEM_DELTA_SOC].offset);
 	if (rc) {
 		pr_err("failed to write delta soc rc=%d\n", rc);
@@ -6108,15 +6027,9 @@ static void delayed_init_work(struct work_struct *work)
 	/* release memory access before update_sram_data is called */
 	fg_mem_release(chip);
 
-	if (charging_detected()) {
-		schedule_delayed_work(
-			&chip->update_jeita_setting,
-			msecs_to_jiffies(INIT_JEITA_DELAY_MS));
-	} else {
-		queue_delayed_work(system_power_efficient_wq,
-			&chip->update_jeita_setting,
-			msecs_to_jiffies(INIT_JEITA_DELAY_MS));
-	}
+	mod_fwd_delayed_work(system_power_efficient_wq,
+		&chip->update_jeita_setting,
+		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
 
 	if (chip->last_sram_update_time == 0)
 		update_sram_data_work(&chip->update_sram_data.work);
@@ -6384,8 +6297,6 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
-	chip->last_soc = get_last_soc(chip);
-	pr_debug("last soc %d\n", chip->last_soc);
 	schedule_work(&chip->init_work);
 
 	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d PMIC subtype=%d\n",
@@ -6446,29 +6357,19 @@ static void check_and_update_sram_data(struct fg_chip *chip)
 	else
 		time_left = 0;
 
-	if (charging_detected()) {
-		schedule_delayed_work(
-			&chip->update_temp_work, msecs_to_jiffies(time_left * 1000));
-	} else {
-		queue_delayed_work(system_power_efficient_wq,
-			&chip->update_temp_work, msecs_to_jiffies(time_left * 1000));
-	}
+	schedule_delayed_work(
+		&chip->update_temp_work, msecs_to_jiffies(time_left * 1000));
 
 	next_update_time = chip->last_sram_update_time
-		+ (clamp(fg_sram_update_period_ms, 3000, 30000) / 1000);
+		+ (fg_sram_update_period_ms / 1000);
 
 	if (next_update_time > current_time)
 		time_left = next_update_time - current_time;
 	else
 		time_left = 0;
 
-	if (charging_detected()) {
-		schedule_delayed_work(
-			&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
-	} else {
-		queue_delayed_work(system_power_efficient_wq,
-			&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
-	}
+	schedule_delayed_work(
+		&chip->update_sram_data, msecs_to_jiffies(time_left * 1000));
 }
 
 static int fg_suspend(struct device *dev)
