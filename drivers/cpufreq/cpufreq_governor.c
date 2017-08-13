@@ -40,29 +40,14 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 	struct od_dbs_tuners *od_tuners = dbs_data->tuners;
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
 	struct cpufreq_policy *policy;
-	unsigned int sampling_rate;
 	unsigned int max_load = 0, deferred_periods = UINT_MAX;
 	unsigned int ignore_nice;
 	unsigned int j;
 
-	if (dbs_data->cdata->governor == GOV_ONDEMAND) {
-		struct od_cpu_dbs_info_s *od_dbs_info =
-				dbs_data->cdata->get_cpu_dbs_info_s(cpu);
-
-		/*
-		 * Sometimes, the ondemand governor uses an additional
-		 * multiplier to give long delays. So apply this multiplier to
-		 * the 'sampling_rate', so as to keep the wake-up-from-idle
-		 * detection logic a bit conservative.
-		 */
-		sampling_rate = od_tuners->sampling_rate;
-		sampling_rate *= od_dbs_info->rate_mult;
-
+	if (dbs_data->cdata->governor == GOV_ONDEMAND)
 		ignore_nice = od_tuners->ignore_nice_load;
-	} else {
-		sampling_rate = cs_tuners->sampling_rate;
+	else
 		ignore_nice = cs_tuners->ignore_nice_load;
-	}
 
 	policy = cdbs->cur_policy;
 
@@ -115,37 +100,7 @@ void dbs_check_cpu(struct dbs_data *dbs_data, int cpu)
 		if (unlikely(!wall_time || wall_time < idle_time))
 			continue;
 
-		/*
-		 * If the CPU had gone completely idle, and a task just woke up
-		 * on this CPU now, it would be unfair to calculate 'load' the
-		 * usual way for this elapsed time-window, because it will show
-		 * near-zero load, irrespective of how CPU intensive that task
-		 * actually is. This is undesirable for latency-sensitive bursty
-		 * workloads.
-		 *
-		 * To avoid this, we calculate 'load' only on the last
-		 * sampling period.
-		 *
-		 * Detecting this situation is easy: the governor's deferrable
-		 * timer would not have fired during CPU-idle periods. Hence
-		 * an unusually large 'wall_time' (as compared to the sampling
-		 * rate) indicates this scenario.
-		 *
-		 */
-		if (unlikely(wall_time > (2 * sampling_rate))) {
-			unsigned int busy = wall_time - idle_time;
-			unsigned int periods = wall_time / sampling_rate;
-
-			if (periods < deferred_periods)
-				deferred_periods = periods;
-
-			if (busy > sampling_rate)
-				load = 100;
-			else
-				load = 100 * busy / sampling_rate;
-		} else {
-			load = 100 * (wall_time - idle_time) / wall_time;
-		}
+		load = 100 * (wall_time - idle_time) / wall_time;
 
 		if (load > max_load)
 			max_load = load;
