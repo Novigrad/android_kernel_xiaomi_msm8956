@@ -422,7 +422,7 @@
 			<  7104 /*  465.6 MHz */ >;	/* STURBO */
 	};
 
-	bwmon: qcom,cpu-bwmon {
+	qcom,cpu-bwmon@408000 {
 		compatible = "qcom,bimc-bwmon3";
 		reg = <0x408000 0x300>, <0x401000 0x200>;
 		reg-names = "base", "global_base";
