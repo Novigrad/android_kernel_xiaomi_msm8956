@@ -24,7 +24,6 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 #include <linux/kthread.h>
-#include <linux/charging_state.h>
 
 static int touchboost = 0;
 
@@ -139,10 +138,7 @@ static int set_touchboost(const char *buf, const struct kernel_param *kp)
 	if (sscanf(buf, "%d\n", &val) != 1)
 		return -EINVAL;
 
-	if (charging_detected())
-		touchboost = 1;
-	else
-		touchboost = val;
+	touchboost = val;
 
 	return 0;
 }
