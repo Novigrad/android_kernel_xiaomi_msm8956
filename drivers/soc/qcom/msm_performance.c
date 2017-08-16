@@ -142,7 +142,7 @@ static int set_touchboost(const char *buf, const struct kernel_param *kp)
 	if (charging_detected())
 		touchboost = 1;
 	else
-		touchboost = val;
+		touchboost = 0;
 
 	return 0;
 }
