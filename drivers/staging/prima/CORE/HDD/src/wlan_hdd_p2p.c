@@ -2143,7 +2143,9 @@ int __wlan_hdd_add_virtual_intf( struct wiphy *wiphy, char *name,
 #endif
 {
     hdd_context_t *pHddCtx = (hdd_context_t*) wiphy_priv(wiphy);
+#ifdef TRACE_RECORD
     hdd_adapter_t *pAdapter = NULL;
+#endif
     hdd_scaninfo_t *pScanInfo = NULL;
     int ret = 0;
 
