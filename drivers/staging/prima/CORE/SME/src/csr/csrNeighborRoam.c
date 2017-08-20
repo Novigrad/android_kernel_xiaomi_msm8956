@@ -1824,9 +1824,7 @@ static VOS_STATUS csrNeighborRoamHandleEmptyScanResult(tpAniSirGlobal pMac)
 {
     VOS_STATUS  vosStatus = VOS_STATUS_SUCCESS;
     tpCsrNeighborRoamControlInfo    pNeighborRoamInfo = &pMac->roam.neighborRoamInfo;
-#ifdef TRACE_RECORD
     eHalStatus  status = eHAL_STATUS_SUCCESS;
-#endif
 #ifdef FEATURE_WLAN_LFR
     tANI_BOOLEAN performPeriodicScan =
         (pNeighborRoamInfo->cfgParams.emptyScanRefreshPeriod) ? TRUE : FALSE;
@@ -4174,9 +4172,7 @@ VOS_STATUS  csrNeighborRoamNeighborLookupDownEvent(tpAniSirGlobal pMac)
 {
     tpCsrNeighborRoamControlInfo    pNeighborRoamInfo = &pMac->roam.neighborRoamInfo;
     VOS_STATUS  vosStatus = VOS_STATUS_SUCCESS;
-#ifdef TRACE_RECORD
     eHalStatus  status = eHAL_STATUS_SUCCESS;
-#endif
 
     switch (pNeighborRoamInfo->neighborRoamState)
     {
