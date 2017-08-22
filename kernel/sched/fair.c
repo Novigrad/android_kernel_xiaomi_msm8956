@@ -1470,23 +1470,6 @@ unsigned int sysctl_sched_upmigrate_pct = 80;
 unsigned int sched_downmigrate;
 unsigned int sysctl_sched_downmigrate_pct = 60;
 
-bool __read_mostly sched_use_shadow_scheduling;
-int __read_mostly sysctl_sched_use_shadow_scheduling;
-
-unsigned int __read_mostly sched_shadow_upmigrate;
-unsigned int __read_mostly sysctl_sched_shadow_upmigrate_pct = 50;
-
-unsigned int __read_mostly sched_shadow_downmigrate;
-unsigned int __read_mostly sysctl_sched_shadow_downmigrate_pct = 30;
-
-unsigned int real_upmigrate;
-unsigned int real_downmigrate;
-
-bool sched_shadow_active;
-static bool pending_policy_reevaluation;
-
-#define SCHED_RECLASSIFY_THRESHOLD 10
-
 /*
  * Tasks whose nice value is > sysctl_sched_upmigrate_min_nice are never
  * considered as "big" tasks.
@@ -1545,74 +1528,6 @@ done:
 	sched_downmigrate = down_migrate;
 }
 
-static inline bool __reevaluate_shadow_policy(void)
-{
-	const bool cur_shadow_active = sched_shadow_active;
-	const bool override_shadow = (sched_shadow_upmigrate > sched_upmigrate)
-			&& (sched_shadow_downmigrate > sched_downmigrate);
-	const unsigned int proposed_upmigrate_pct = (cur_shadow_active && !override_shadow) ?
-			sched_shadow_upmigrate : sched_upmigrate;
-	const unsigned int proposed_downmigrate_pct = (cur_shadow_active && !override_shadow) ?
-			sched_shadow_downmigrate : sched_downmigrate;
-	const unsigned int real_upmigrate_pct = real_to_pct(real_upmigrate);
-	const unsigned int real_downmigrate_pct = real_to_pct(real_downmigrate);
-
-	/* Calculate differences to compare against our threshold */
-	const int upmigrate_diff = abs(proposed_upmigrate_pct - real_upmigrate_pct);
-	const int downmigrate_diff = abs(proposed_downmigrate_pct - real_downmigrate_pct);
-
-	/*
-	 * If the proposed scheduling policy matches the real
-	 * scheduling policy, nothing needs to be done.
-	 */
-	if (real_upmigrate_pct == proposed_upmigrate_pct &&
-			real_downmigrate_pct == proposed_downmigrate_pct)
-		return false;
-
-	if (!sched_use_shadow_scheduling)
-		goto new_sched_policy;
-
-	/* Evaluate whether it is worth to do a full task reclassification */
-	if (upmigrate_diff <= SCHED_RECLASSIFY_THRESHOLD &&
-			downmigrate_diff <= SCHED_RECLASSIFY_THRESHOLD) {
-		return false;
-	}
-
-new_sched_policy:
-
-	/* Avoid applying a policy if a new reevaluation is pending */
-	if (pending_policy_reevaluation)
-		return false;
-
-	/* Sanity check */
-	if (proposed_upmigrate_pct == 0 || proposed_downmigrate_pct == 0) {
-		return false;
-	}
-
-	/* Apply new scheduling policy */
-	get_online_cpus();
-	pre_big_small_task_count_change(cpu_online_mask);
-	real_upmigrate = pct_to_real(proposed_upmigrate_pct);
-	real_downmigrate = pct_to_real(proposed_downmigrate_pct);
-	post_big_small_task_count_change(cpu_online_mask);
-	put_online_cpus();
-
-	return true;
-}
-
-static DEFINE_RAW_SPINLOCK(sched_policy_lock);
-static inline bool reevaluate_shadow_policy_safe(void)
-{
-	bool ret = false;
-	unsigned long flags;
-	pending_policy_reevaluation = true;
-	raw_spin_lock_irqsave(&sched_policy_lock, flags);
-	pending_policy_reevaluation = false;
-	ret = __reevaluate_shadow_policy();
-	raw_spin_unlock_irqrestore(&sched_policy_lock, flags);
-	return ret;
-}
-
 void set_hmp_defaults(void)
 {
 	sched_spill_load =
@@ -1620,18 +1535,6 @@ void set_hmp_defaults(void)
 
 	sched_small_task =
 		pct_to_real(sysctl_sched_small_task_pct);
-
-	sched_upmigrate =
-		sysctl_sched_upmigrate_pct;
-
-	sched_downmigrate =
-		sysctl_sched_downmigrate_pct;
-
-	sched_shadow_upmigrate =
-		sysctl_sched_shadow_upmigrate_pct;
-
-	sched_shadow_downmigrate =
-		sysctl_sched_shadow_downmigrate_pct;
 
 	update_up_down_migrate();
 
@@ -1659,8 +1562,6 @@ void set_hmp_defaults(void)
 				sysctl_sched_grp_task_active_windows;
 	sched_grp_min_task_load_delta = sched_ravg_window / 4;
 	sched_grp_min_cluster_update_delta = sched_ravg_window / 10;
-
-	reevaluate_shadow_policy_safe();
 }
 
 u32 sched_get_init_task_load(struct task_struct *p)
@@ -1778,7 +1679,7 @@ static inline int is_big_task(struct task_struct *p)
 
 	load = scale_load_to_cpu(load, task_cpu(p));
 
-	return load > real_upmigrate;
+	return load > sched_upmigrate;
 }
 
 /* Is a task "small" on the minimum capacity CPU */
@@ -1910,14 +1811,6 @@ int sched_set_boost(int enable)
 	return ret;
 }
 
-void sched_set_shadow_active(bool active)
-{
-	if (sched_shadow_active != active && sched_use_shadow_scheduling) {
-		sched_shadow_active = active;
-		reevaluate_shadow_policy_safe();
-	}
-}
-
 int sched_boost_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos)
@@ -1965,9 +1858,9 @@ static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu)
 		if (nice > sched_upmigrate_min_nice || upmigrate_discouraged(p))
 			return 1;
 
-		upmigrate = real_upmigrate;
+		upmigrate = sched_upmigrate;
 		if (cpu_capacity(prev_cpu) > cpu_capacity(cpu))
-			upmigrate = real_downmigrate;
+			upmigrate = sched_downmigrate;
 
 		if (task_load < upmigrate)
 			return 1;
@@ -2986,7 +2879,6 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	unsigned int old_val;
 	unsigned int *data = (unsigned int *)table->data;
 	int update_min_nice = 0;
-	bool force_reclassify = false;
 
 	mutex_lock(&policy_mutex);
 
@@ -2999,21 +2891,6 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 
 	if (write && (old_val == *data))
 		goto done;
-
-	if (data == (unsigned int *)&sysctl_sched_use_shadow_scheduling) {
-		if (sysctl_sched_use_shadow_scheduling > 0) {
-			sched_use_shadow_scheduling = true;
-			/* Avoid values bigger than one to show up
-			   in the sysfs node */
-			sysctl_sched_use_shadow_scheduling = 1;
-		} else {
-			/* Also handle the case of shadow being active
-			   in this moment */
-			sched_set_shadow_active(false);
-			sched_use_shadow_scheduling = false;
-		}
-		goto done;
-	}
 
 	if (data == &sysctl_sched_min_runtime) {
 		sched_min_runtime = ((u64) sysctl_sched_min_runtime) * 1000;
@@ -3047,29 +2924,13 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 		update_min_nice = 1;
 	} else {
 		/* all tunables other than min_nice are in percentage */
-		if ((sysctl_sched_downmigrate_pct >
-		    sysctl_sched_upmigrate_pct)
-		     || (sysctl_sched_shadow_downmigrate_pct >
-			sysctl_sched_shadow_upmigrate_pct)
-		     || *data > 100) {
+		if (sysctl_sched_downmigrate_pct >
+		    sysctl_sched_upmigrate_pct || *data > 100) {
 			*data = old_val;
 			ret = -EINVAL;
 			goto done;
 		}
 	}
-
-	/* Evaluate whether we need to force a reclassification
-	   of tasks based on sched_shadow_active */
-
-	/* If sched_upmigrate_min_nice changed we need a
-	   reclassification regardless of shadow. */
-	if (update_min_nice)
-		force_reclassify = true;
-
-	/* If sched_small_task changed we need a
-	   reclassification regardless of shadow. */
-	if (data == &sysctl_sched_small_task_pct)
-		force_reclassify = true;
 
 	/*
 	 * Big/Small task tunable change will need to re-classify tasks on
@@ -3079,14 +2940,16 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	 * includes taking runqueue lock of all online cpus and re-initiatizing
 	 * their big/small counter values based on changed criteria.
 	 */
-	if (force_reclassify) {
+	if ((data == &sysctl_sched_upmigrate_pct ||
+	     data == &sysctl_sched_small_task_pct || update_min_nice)) {
 		get_online_cpus();
 		pre_big_small_task_count_change(cpu_online_mask);
 	}
 
 	set_hmp_defaults();
 
-	if (force_reclassify) {
+	if ((data == &sysctl_sched_upmigrate_pct ||
+	     data == &sysctl_sched_small_task_pct || update_min_nice)) {
 		post_big_small_task_count_change(cpu_online_mask);
 		put_online_cpus();
 	}
