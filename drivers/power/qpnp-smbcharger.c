@@ -1825,7 +1825,7 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 #define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
 #define DCIN_ACTIVE_PWR_SRC_BIT		BIT(0)
 #define PARALLEL_REENABLE_TIMER_MS	1000
-#define PARALLEL_CHG_THRESHOLD_CURRENT	1800
+#define PARALLEL_CHG_THRESHOLD_CURRENT	2400
 int smbchg_parallel_chg_threshold_ma = PARALLEL_CHG_THRESHOLD_CURRENT;
 module_param_named(
 	default_parallel_chg_threshold, smbchg_parallel_chg_threshold_ma,
@@ -3369,7 +3369,7 @@ static int smbchg_icl_loop_disable_check(struct smbchg_chip *chip)
 
 #define UNKNOWN_BATT_TYPE	"Unknown Battery"
 #define LOADING_BATT_TYPE	"Loading Battery Data"
-int smb_fastchg_ma = 2000;
+int smb_fastchg_ma = 2400;
 module_param_named(default_fastchg_current_ma, smb_fastchg_ma, int, S_IRUSR | S_IWUSR);
 static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 {
@@ -7215,7 +7215,7 @@ static struct of_device_id smbchg_match_table[] = {
 };
 
 #define DC_MA_MIN 300
-#define DC_MA_MAX 2000
+#define DC_MA_MAX 2400
 #define OF_PROP_READ(chip, prop, dt_property, retval, optional)		\
 do {									\
 	if (retval)							\
@@ -7330,7 +7330,7 @@ err:
 }
 
 #define DEFAULT_VLED_MAX_UV		3500000
-#define DEFAULT_FCC_MA			2000
+#define DEFAULT_FCC_MA			2400
 static int smb_parse_dt(struct smbchg_chip *chip)
 {
 	int rc = 0, ocp_thresh = -EINVAL;
@@ -7982,7 +7982,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 
 	chip->fcc_votable = create_votable(&spmi->dev,
 			"SMBCHG: fcc",
-			VOTE_MIN, NUM_FCC_VOTER, 2000,
+			VOTE_MIN, NUM_FCC_VOTER, 2400,
 			set_fastchg_current_vote_cb);
 	if (IS_ERR(chip->fcc_votable))
 		return PTR_ERR(chip->fcc_votable);
