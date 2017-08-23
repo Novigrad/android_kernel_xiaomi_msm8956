@@ -392,7 +392,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   $(GEN_OPT_FLAGS)
 
 # Suppress GCC 6 Warnings
-KBUILD_CFLAGS   += -Wno-unused-variable -Wno-misleading-indentation \
+# KBUILD_CFLAGS   += -Wno-unused-variable -Wno-misleading-indentation \
 
 KBUILD_AFLAGS_KERNEL := $(GEN_OPT_FLAGS)
 KBUILD_CFLAGS_KERNEL := $(GEN_OPT_FLAGS)
@@ -591,13 +591,9 @@ endif # $(dot-config)
 all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,)
-KBUILD_CFLAGS += $(call cc-disable-warning,maybe-uninitialized)
-KBUILD_CFLAGS += $(call cc-disable-warning,array-bounds)
+KBUILD_CFLAGS	+= -Os
 else
 KBUILD_CFLAGS	+= -O3 -Wno-maybe-uninitialized
-KBUILD_CFLAGS += $(call cc-disable-warning,maybe-uninitialized)
-KBUILD_CFLAGS += $(call cc-disable-warning,array-bounds)
 endif
 
 # Tell gcc to never replace conditional load with a non-conditional one
