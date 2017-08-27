@@ -3828,9 +3828,18 @@ static struct clk_lookup msm_clocks_gcc_gfx[] = {
 	CLK_LIST(gcc_gtcu_ahb_clk),
 };
 
-extern int cpr2_gfx_regulator_get_corner_voltage(struct regulator *regulator,
+/* GPU Voltage Control: Start */
+extern int cpr2_gfx_regulator_get_ceiling_voltage(struct regulator *regulator,
 		int corner);
-extern int cpr2_gfx_regulator_set_corner_voltage(struct regulator *regulator,
+extern int cpr2_gfx_regulator_get_floor_voltage(struct regulator *regulator,
+		int corner);
+extern int cpr2_gfx_regulator_get_last_voltage(struct regulator *regulator,
+		int corner);
+extern int cpr2_gfx_regulator_set_ceiling_voltage(struct regulator *regulator,
+		int corner, int volt);
+extern int cpr2_gfx_regulator_set_floor_voltage(struct regulator *regulator,
+		int corner, int volt);
+extern int cpr2_gfx_regulator_set_last_voltage(struct regulator *regulator,
 		int corner, int volt);
 
 ssize_t gpu_clock_get_vdd(char *buf)
@@ -3842,12 +3851,31 @@ ssize_t gpu_clock_get_vdd(char *buf)
 		return 0;
 
 	for (i = 1; i < gfx3d_clk_src.c.num_fmax; i++) {
-		uv = cpr2_gfx_regulator_get_corner_voltage(
+		// Max
+		uv = cpr2_gfx_regulator_get_ceiling_voltage(
 					gfx3d_clk_src.c.vdd_class->regulator[0],
 					gfx3d_clk_src.c.vdd_class->vdd_uv[i]);
 		if (uv < 0)
 			return 0;
-		count += sprintf(buf + count, "%lumhz: %d mV\n",
+		count += sprintf(buf + count, "Vmax_%lumhz: %d mV\n",
+					gfx3d_clk_src.c.fmax[i] / 1000000,
+					uv / 1000);
+		// Min
+		uv = cpr2_gfx_regulator_get_floor_voltage(
+					gfx3d_clk_src.c.vdd_class->regulator[0],
+					gfx3d_clk_src.c.vdd_class->vdd_uv[i]);
+		if (uv < 0)
+			return 0;
+		count += sprintf(buf + count, "Vmin_%lumhz: %d mV\n",
+					gfx3d_clk_src.c.fmax[i] / 1000000,
+					uv / 1000);
+		// Cur
+		uv = cpr2_gfx_regulator_get_last_voltage(
+					gfx3d_clk_src.c.vdd_class->regulator[0],
+					gfx3d_clk_src.c.vdd_class->vdd_uv[i]);
+		if (uv < 0)
+			return 0;
+		count += sprintf(buf + count, "Vcur_%lumhz: %d mV\n",
 					gfx3d_clk_src.c.fmax[i] / 1000000,
 					uv / 1000);
 	}
@@ -3864,11 +3892,40 @@ ssize_t gpu_clock_set_vdd(const char *buf, size_t count)
 		return -EINVAL;
 
 	for (i = 1; i < gfx3d_clk_src.c.num_fmax; i++) {
+		// Max
 		ret = sscanf(buf, "%d", &mv);
 		if (ret != 1)
 			return -EINVAL;
 
-		ret = cpr2_gfx_regulator_set_corner_voltage(
+		ret = cpr2_gfx_regulator_set_ceiling_voltage(
+					gfx3d_clk_src.c.vdd_class->regulator[0],
+					gfx3d_clk_src.c.vdd_class->vdd_uv[i],
+					mv * 1000);
+		if (ret < 0)
+			return ret;
+
+		ret = sscanf(buf, "%s", line);
+		buf += strlen(line) + 1;
+		// Min
+		ret = sscanf(buf, "%d", &mv);
+		if (ret != 1)
+			return -EINVAL;
+
+		ret = cpr2_gfx_regulator_set_floor_voltage(
+					gfx3d_clk_src.c.vdd_class->regulator[0],
+					gfx3d_clk_src.c.vdd_class->vdd_uv[i],
+					mv * 1000);
+		if (ret < 0)
+			return ret;
+
+		ret = sscanf(buf, "%s", line);
+		buf += strlen(line) + 1;
+		// Cur
+		ret = sscanf(buf, "%d", &mv);
+		if (ret != 1)
+			return -EINVAL;
+
+		ret = cpr2_gfx_regulator_set_last_voltage(
 					gfx3d_clk_src.c.vdd_class->regulator[0],
 					gfx3d_clk_src.c.vdd_class->vdd_uv[i],
 					mv * 1000);
@@ -3881,6 +3938,7 @@ ssize_t gpu_clock_set_vdd(const char *buf, size_t count)
 
 	return count;
 }
+/* GPU Voltage Control: End */
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 								char *prop_name)
