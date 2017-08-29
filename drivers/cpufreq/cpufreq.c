@@ -672,17 +672,17 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
 
+extern ssize_t cpu_clock_get_vdd(char *buf);
+extern ssize_t cpu_clock_set_vdd(const char *buf, size_t count);
+
 static bool enable_voltage_control = true;
 module_param(enable_voltage_control, bool, 0664);
 
-/* CPU Voltage Control: Start */
-extern ssize_t cpu_clock_get_vdd(char *buf);
 static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf)
 {
 	return cpu_clock_get_vdd(buf);
 }
 
-extern ssize_t cpu_clock_set_vdd(const char *buf, size_t count);
 static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 	const char *buf, size_t count)
 {
@@ -691,16 +691,15 @@ static ssize_t store_UV_mV_table(struct cpufreq_policy *policy,
 
 	return cpu_clock_set_vdd(buf, count);
 }
-/* CPU Voltage Control: End */
 
-/* GPU Voltage Control: Start */
 extern ssize_t gpu_clock_get_vdd(char *buf);
+extern ssize_t gpu_clock_set_vdd(const char *buf, size_t count);
+
 static ssize_t show_GPU_mV_table(struct cpufreq_policy *policy, char *buf)
 {
 	return gpu_clock_get_vdd(buf);
 }
 
-extern ssize_t gpu_clock_set_vdd(const char *buf, size_t count);
 static ssize_t store_GPU_mV_table(struct cpufreq_policy *policy,
 	const char *buf, size_t count)
 {
@@ -709,7 +708,6 @@ static ssize_t store_GPU_mV_table(struct cpufreq_policy *policy,
 
 	return gpu_clock_set_vdd(buf, count);
 }
-/* GPU Voltage Control: End */
 
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
