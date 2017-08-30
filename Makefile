@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 10
 SUBLEVEL = 107
-EXTRAVERSION = -Darkness-Remix
+EXTRAVERSION = -Bobs_and_Vegans
 NAME = TOSSUG Baby Fish
 
 # *DOCUMENTATION*
@@ -392,7 +392,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   $(GEN_OPT_FLAGS)
 
 # Suppress GCC 6 Warnings
-KBUILD_CFLAGS   += -Wno-unused-variable -Wno-misleading-indentation -Wno-array-bounds \
+KBUILD_CFLAGS   += -Wno-unused-variable -Wno-misleading-indentation \
 
 KBUILD_AFLAGS_KERNEL := $(GEN_OPT_FLAGS)
 KBUILD_CFLAGS_KERNEL := $(GEN_OPT_FLAGS)

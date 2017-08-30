@@ -71,6 +71,7 @@ KBUILD_DTBS	:= dtbs
 
 all:	$(KBUILD_IMAGE) $(KBUILD_DTBS)
 
+boot32 := arch/arm/boot
 boot := arch/arm64/boot
 
 Image: vmlinux
@@ -83,11 +84,13 @@ zinstall install:
 	$(Q)$(MAKE) $(build)=$(boot) $@
 
 %.dtb: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
+	$(Q)$(MAKE) $(build)=$(boot32)/dts $(boot32)/dts/$@
 
+.PHONY: dtbs
 dtbs: scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts dtbs
-	$(Q)$(MAKE) $(build)=$(boot)/dts/qcom dtbs
+	$(Q)$(MAKE) $(build)=$(boot32)/dts dtbs
+	$(Q)$(MAKE) $(build)=$(boot32)/dts/qcom dtbs
+	@true
 
 PHONY += vdso_install
 vdso_install:
