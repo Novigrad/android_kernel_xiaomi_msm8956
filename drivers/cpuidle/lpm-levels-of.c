@@ -115,38 +115,21 @@ static void set_optimum_cluster_residency(struct lpm_cluster *cluster,
 		bool probe_time)
 {
 	int i, j;
-	bool mode_avail;
+	bool mode_avail = false;
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct power_params *pwr = &cluster->levels[i].pwr;
 
-		mode_avail = probe_time ||
-				lpm_cluster_mode_allow(cluster, i, true);
-		if (!mode_avail) {
-			pwr->max_residency = 0;
-			pwr->min_residency = 0;
-			continue;
-		}
-
 		pwr->max_residency = ~0;
-		for (j = i + 1; j < cluster->nlevels; j++) {
+		for (j = 0; j < cluster->nlevels; j++) {
+			if (i >= j)
 				mode_avail = probe_time ||
-					lpm_cluster_mode_allow(cluster, j,
+					lpm_cluster_mode_allow(cluster, i,
 							true);
 			if (mode_avail &&
 				(pwr->max_residency > pwr->residencies[j]) &&
 				(pwr->residencies[j] != 0))
 				pwr->max_residency = pwr->residencies[j];
-		}
-
-		pwr->min_residency = pwr->time_overhead_us;
-		for (j = i-1;  j >= 0; j--) {
-			if (probe_time ||
-				 lpm_cluster_mode_allow(cluster, j, true)) {
-				pwr->min_residency =
-				 cluster->levels[j].pwr.max_residency + 1;
-				break;
-			}
 		}
 	}
 }
