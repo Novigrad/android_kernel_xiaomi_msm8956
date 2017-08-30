@@ -392,7 +392,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   $(GEN_OPT_FLAGS)
 
 # Suppress GCC 6 Warnings
-KBUILD_CFLAGS   += -Wno-unused-variable -Wno-misleading-indentation \
+KBUILD_CFLAGS   += -Wno-unused-variable \
 
 KBUILD_AFLAGS_KERNEL := $(GEN_OPT_FLAGS)
 KBUILD_CFLAGS_KERNEL := $(GEN_OPT_FLAGS)
