@@ -16907,15 +16907,15 @@ WDI_ProcessInitScanRsp
   }
   else if (WDI_STATUS_SUCCESS != wdiStatus)
   {
-//     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
-//               "Error returned WDI_ProcessInitScanRspi:%d BMPS%d",
-//               wdiStatus, pWDICtx->bInBmps);
+     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
+               "Error returned WDI_ProcessInitScanRspi:%d BMPS%d",
+               wdiStatus, pWDICtx->bInBmps);
   }
   else
   {
-//     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
-//               "Error returned WDI_ProcessInitScanRspi:%d BMPS%d",
-//               wdiStatus, pWDICtx->bInBmps);
+     WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
+               "Error returned WDI_ProcessInitScanRspi:%d BMPS%d",
+               wdiStatus, pWDICtx->bInBmps);
   }
 
   /*Notify UMAC*/
@@ -37948,7 +37948,7 @@ WDI_ProcessSetArpStatsReq
       ( usSendSize < (usDataOffset + sizeof(statsReqParams.statsArpReqParams))))
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
-              "Unable to get send buffer in set bss key req %p %p %p",
+              "Unable to get send buffer in set bss key req %pK %pK %pK",
                 pEventData, pSetARPStatsReqParams, wdiSetARPStatsRspCb);
      WDI_ASSERT(0);
      return WDI_STATUS_E_FAILURE;
@@ -38054,7 +38054,7 @@ WDI_ProcessGetArpStatsReq
                       sizeof(statsReqParams.statsGetArpReqParams))))
   {
      WPAL_TRACE( eWLAN_MODULE_DAL_CTRL,  eWLAN_PAL_TRACE_LEVEL_WARN,
-              "Unable to get send buffer in set bss key req %p %p %p",
+              "Unable to get send buffer in set bss key req %pK %pK %pK",
                 pEventData, pGetARPStatsReqParams, wdiGetARPStatsRspCb);
      WDI_ASSERT(0);
      return WDI_STATUS_E_FAILURE;

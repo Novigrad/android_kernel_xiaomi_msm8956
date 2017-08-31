@@ -1439,7 +1439,9 @@ eHalStatus sme_Open(tHalHandle hHal)
 #endif
       sme_p2pOpen(pMac);
       smeTraceInit(pMac);
+#ifdef SME_TRACE_RECORD
       sme_register_debug_callback();
+#endif
 
    }while (0);
 
@@ -1467,7 +1469,9 @@ eHalStatus sme_Open(tHalHandle hHal)
 eHalStatus sme_set11dinfo(tHalHandle hHal,  tpSmeConfigParams pSmeConfigParams)
 {
    eHalStatus status = eHAL_STATUS_FAILURE;
+#ifdef TRACE_RECORD
    tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
+#endif
 
    MTRACE(vos_trace(VOS_MODULE_ID_SME,
                       TRACE_CODE_SME_RX_HDD_MSG_SET_11DINFO, NO_SESSION, 0));
@@ -1522,8 +1526,9 @@ eHalStatus sme_getSoftApDomain(tHalHandle hHal,  v_REGDOMAIN_t *domainIdSoftAp)
 eHalStatus sme_setRegInfo(tHalHandle hHal,  tANI_U8 *apCntryCode)
 {
    eHalStatus status = eHAL_STATUS_FAILURE;
+#ifdef TRACE_RECORD
    tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
-
+#endif
    MTRACE(vos_trace(VOS_MODULE_ID_SME,
              TRACE_CODE_SME_RX_HDD_MSG_SET_REGINFO, NO_SESSION, 0));
    if (NULL == apCntryCode ) {
@@ -6692,6 +6697,7 @@ VOS_STATUS sme_DbgWriteMemory(tHalHandle hHal, v_U32_t memAddr, v_U8_t *pBuf, v_
 }
 
 
+#ifdef WLAN_DEBUG
 void pmcLog(tpAniSirGlobal pMac, tANI_U32 loglevel, const char *pString, ...)
 {
     VOS_TRACE_LEVEL  vosDebugLevel;
@@ -6712,7 +6718,6 @@ void pmcLog(tpAniSirGlobal pMac, tANI_U32 loglevel, const char *pString, ...)
 
 void smsLog(tpAniSirGlobal pMac, tANI_U32 loglevel, const char *pString,...)
 {
-#ifdef WLAN_DEBUG
     // Verify against current log level
     if ( loglevel > pMac->utils.gLogDbgLevel[LOG_INDEX_FOR_MODULE( SIR_SMS_MODULE_ID )] )
         return;
@@ -6726,8 +6731,8 @@ void smsLog(tpAniSirGlobal pMac, tANI_U32 loglevel, const char *pString,...)
 
         va_end( marker );              /* Reset variable arguments.      */
     }
-#endif
 }
+#endif
 
 /* ---------------------------------------------------------------------------
     \fn sme_GetWcnssWlanCompiledVersion
@@ -13032,7 +13037,9 @@ eHalStatus sme_GetValidChannelsByBand (tHalHandle hHal, tANI_U8 wifiBand,
 {
     eHalStatus status                                   = eHAL_STATUS_SUCCESS;
     tANI_U8 chanList[WNI_CFG_VALID_CHANNEL_LIST_LEN]    = {0};
+#ifdef TRACE_RECORD
     tpAniSirGlobal pMac                                 = PMAC_STRUCT(hHal);
+#endif
     tANI_U8 numChannels                                 = 0;
     tANI_U8 i                                           = 0;
     tANI_U32 totValidChannels                 = WNI_CFG_VALID_CHANNEL_LIST_LEN;
