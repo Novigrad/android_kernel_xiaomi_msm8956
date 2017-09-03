@@ -57,6 +57,9 @@ static int gc_thread_func(void *data)
 		}
 #endif
 
+		if (!sb_start_write_trylock(sbi->sb))
+			continue;
+
 		/*
 		 * [GC triggering condition]
 		 * 0. GC is not conducted currently.
@@ -71,12 +74,12 @@ static int gc_thread_func(void *data)
 		 * So, I'd like to wait some time to collect dirty segments.
 		 */
 		if (!mutex_trylock(&sbi->gc_mutex))
-			continue;
+			goto next;
 
 		if (!is_idle(sbi)) {
 			increase_sleep_time(gc_th, &wait_ms);
 			mutex_unlock(&sbi->gc_mutex);
-			continue;
+			goto next;
 		}
 
 		if (has_enough_invalid_blocks(sbi))
@@ -95,6 +98,9 @@ static int gc_thread_func(void *data)
 
 		/* balancing f2fs's metadata periodically */
 		f2fs_balance_fs_bg(sbi);
+
+next:
+		sb_end_write(sbi->sb);
 
 	} while (!kthread_should_stop());
 	return 0;
