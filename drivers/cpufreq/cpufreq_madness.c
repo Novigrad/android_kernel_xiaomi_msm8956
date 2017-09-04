@@ -15,7 +15,7 @@
 
 #include <linux/slab.h>
 #include "cpufreq_governor.h"
-#include <linux/state_notifier.h>
+#include <linux/display_state.h>
 
 /* Madness version macros */
 #define MADNESS_VERSION_MAJOR	(1)
@@ -33,10 +33,6 @@
 
 static DEFINE_PER_CPU(struct cs_cpu_dbs_info_s, cs_cpu_dbs_info);
 static DEFINE_PER_CPU(struct cs_dbs_tuners *, cached_tuners);
-
-/* State Notifier Support */
-static struct notifier_block madness_state_notif;
-static bool suspended = false;
 
 static unsigned int boost_counter = 0;
 
@@ -67,9 +63,10 @@ static void cs_check_cpu(int cpu, unsigned int load)
 	struct cpufreq_policy *policy = dbs_info->cdbs.cur_policy;
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct cs_dbs_tuners *cs_tuners = dbs_data->tuners;
+	bool display_on = is_display_on();
 
 	/* Once min frequency is reached while screen off, stop taking load samples*/
-	if (suspended && policy->cur == policy->min)
+	if (!display_on && policy->cur == policy->min)
 		return;
 
 	/*
@@ -80,7 +77,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		return;
 
 	/* Check for frequency decrease */
-	if (!suspended && load < cs_tuners->down_threshold) {
+	if (display_on && load < cs_tuners->down_threshold) {
 		unsigned int freq_target;
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
@@ -102,7 +99,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 		__cpufreq_driver_target(policy, dbs_info->requested_freq,
 				CPUFREQ_RELATION_L);
 		return;
-	} else if (suspended && load <= cs_tuners->down_threshold_suspended) {
+	} else if (!display_on && load <= cs_tuners->down_threshold_suspended) {
 		unsigned int freq_target;
 		/*
 		 * if we cannot reduce the frequency anymore, break out early
@@ -131,7 +128,7 @@ static void cs_check_cpu(int cpu, unsigned int load)
 			return;
 
 		/* if display is off then break out early */
-		if (suspended)
+		if (!display_on)
 			return;
 
 		/* Boost if count is reached, otherwise increase freq */
@@ -415,33 +412,8 @@ struct cpufreq_governor cpufreq_gov_madness = {
 	.owner			= THIS_MODULE,
 };
 
-static int state_notifier_callback(struct notifier_block *this,
-	unsigned long event, void *data)
-{
-	if (!suspended)
-		return NOTIFY_OK;
-
-	switch (event) {
-		case STATE_NOTIFIER_ACTIVE:
-			suspended = false;
-			break;
-		case STATE_NOTIFIER_SUSPEND:
-			suspended = true;
-			break;
-		default:
-			break;
-	}
-
-	return NOTIFY_OK;
-}
-
 static int __init cpufreq_gov_dbs_init(void)
 {
-	/* Register Madness to State Notifier */
-	madness_state_notif.notifier_call = state_notifier_callback;
-	if (state_register_client(&madness_state_notif))
-		pr_err("Failed to register State notifier callback\n");
-
 	return cpufreq_register_governor(&cpufreq_gov_madness);
 }
 
@@ -450,9 +422,6 @@ static void __exit cpufreq_gov_dbs_exit(void)
 	int cpu;
 
 	cpufreq_unregister_governor(&cpufreq_gov_madness);
-
-	/* Unregister Madness to State Notifier */
-	state_unregister_client(&madness_state_notif);
 
 	for_each_possible_cpu(cpu) {
 		kfree(per_cpu(cached_tuners, cpu));

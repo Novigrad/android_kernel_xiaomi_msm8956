@@ -13,8 +13,6 @@
  * GNU General Public License for more details.
  *
  * Author: Mike Chan (mike@android.com)
- * Author: engstk (eng.stk@sapo.pt)
- * Author: mydongistiny (jaysonedson@gmail.com)
  * Author: MOVZX (movzx@yahoo.com)
  *
  */
@@ -33,11 +31,11 @@
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
-#include <linux/state_notifier.h>
+#include <linux/display_state.h>
 
 /* darkness version */
 #define DARKNESS_VERSION_MAJOR	(1)
-#define DARKNESS_VERSION_MINOR	(6)
+#define DARKNESS_VERSION_MINOR	(0)
 
 struct cpufreq_darkness_cpuinfo {
 	struct timer_list cpu_timer;
@@ -70,10 +68,6 @@ static struct task_struct *speedchange_task;
 static cpumask_t speedchange_cpumask;
 static spinlock_t speedchange_cpumask_lock;
 static struct mutex gov_lock;
-
-/* State Notifier Support */
-static struct notifier_block darkness_state_notif;
-static bool suspended = false;
 
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
@@ -415,6 +409,7 @@ static void cpufreq_darkness_timer(unsigned long data)
 	unsigned long flags;
 	u64 max_fvtime;
 	struct cpufreq_govinfo int_info;
+	bool display_on = is_display_on();
 	unsigned int this_hispeed_freq;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
@@ -443,10 +438,10 @@ static void cpufreq_darkness_timer(unsigned long data)
 	atomic_notifier_call_chain(&cpufreq_govinfo_notifier_list,
 		CPUFREQ_LOAD_CHANGE, &int_info);
 
-	if (!suspended &&
+	if (display_on &&
 		tunables->timer_rate != tunables->prev_timer_rate)
 		tunables->timer_rate = tunables->prev_timer_rate;
-	else if (suspended &&
+	else if (!display_on &&
 		tunables->timer_rate != tunables->timer_rate_screenoff) {
 		tunables->prev_timer_rate = tunables->timer_rate;
 		tunables->timer_rate
@@ -592,6 +587,7 @@ static int cpufreq_darkness_speedchange_task(void *data)
 	unsigned long flags;
 	struct cpufreq_darkness_cpuinfo *pcpu;
 	struct cpufreq_darkness_tunables *tunables;
+	bool display_on = is_display_on();
 
 	while (1) {
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -627,7 +623,7 @@ static int cpufreq_darkness_speedchange_task(void *data)
 				continue;
 			}
 
-			if (unlikely(suspended)) {
+			if (unlikely(!display_on)) {
 				if (pcpu->target_freq > tunables->screen_off_max)
 				pcpu->target_freq = tunables->screen_off_max;
 			}
@@ -645,7 +641,7 @@ static int cpufreq_darkness_speedchange_task(void *data)
 
 			if (max_freq != pcpu->policy->cur) {
 				tunables = pcpu->policy->governor_data;
-				if (tunables->powersave_bias || suspended)
+				if (tunables->powersave_bias || !display_on)
 					__cpufreq_driver_target(pcpu->policy,
 						max_freq,
 						CPUFREQ_RELATION_C);
@@ -1513,26 +1509,6 @@ static void cpufreq_darkness_nop_timer(unsigned long data)
 {
 }
 
-static int state_notifier_callback(struct notifier_block *this,
-	unsigned long event, void *data)
-{
-	if (!suspended)
-		return NOTIFY_OK;
-
-	switch (event) {
-		case STATE_NOTIFIER_ACTIVE:
-			suspended = false;
-			break;
-		case STATE_NOTIFIER_SUSPEND:
-			suspended = true;
-			break;
-		default:
-			break;
-	}
-
-	return NOTIFY_OK;
-}
-
 static int __init cpufreq_darkness_init(void)
 {
 	unsigned int i;
@@ -1560,11 +1536,6 @@ static int __init cpufreq_darkness_init(void)
 	if (IS_ERR(speedchange_task))
 		return PTR_ERR(speedchange_task);
 
-	/* Register Darkness to State Notifier */
-	darkness_state_notif.notifier_call = state_notifier_callback;
-	if (state_register_client(&darkness_state_notif))
-		pr_err("Failed to register State notifier callback\n");
-
 	sched_setscheduler_nocheck(speedchange_task, SCHED_FIFO, &param);
 	get_task_struct(speedchange_task);
 
@@ -1589,9 +1560,6 @@ static void __exit cpufreq_darkness_exit(void)
 	kthread_stop(speedchange_task);
 	put_task_struct(speedchange_task);
 
-	/* Unregister Darkness to State Notifier */
-	state_unregister_client(&darkness_state_notif);
-
 	for_each_possible_cpu(cpu) {
 		pcpu = &per_cpu(cpuinfo, cpu);
 		kfree(pcpu->cached_tunables);
@@ -1602,8 +1570,6 @@ static void __exit cpufreq_darkness_exit(void)
 module_exit(cpufreq_darkness_exit);
 
 MODULE_AUTHOR("Mike Chan <mike@android.com>");
-MODULE_AUTHOR("mydongistiny <jaysonedson@gmail.com>");
-MODULE_AUTHOR("engstk <eng.stk@sapo.pt>");
 MODULE_AUTHOR("MOVZX <movzx@yahoo.com>");
 MODULE_DESCRIPTION("'cpufreq_darkness' - A cpufreq governor for latency sensitive workloads");
 MODULE_LICENSE("GPL");
