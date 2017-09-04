@@ -47,6 +47,16 @@ void freeze_set_ops(const struct platform_freeze_ops *ops)
 	unlock_system_sleep();
 }
 
+<<<<<<< HEAD
+=======
+static DECLARE_WAIT_QUEUE_HEAD(suspend_freeze_wait_head);
+static bool suspend_freeze_wake;
+
+#ifdef CONFIG_QUICK_THAW_FINGERPRINTD
+extern void thaw_fingerprintd(void);
+#endif
+
+>>>>>>> f933400... power: PM: Add fingprintd quick resume from OnePlus
 static void freeze_begin(void)
 {
 	suspend_freeze_wake = false;
@@ -349,6 +359,10 @@ static int suspend_enter(suspend_state_t state, bool *wakeup)
 
  Platform_early_resume:
 	platform_resume_early(state);
+
+#ifdef CONFIG_QUICK_THAW_FINGERPRINTD
+	thaw_fingerprintd();
+#endif
 
  Devices_early_resume:
 	dpm_resume_early(PMSG_RESUME);
