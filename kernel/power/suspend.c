@@ -47,16 +47,10 @@ void freeze_set_ops(const struct platform_freeze_ops *ops)
 	unlock_system_sleep();
 }
 
-<<<<<<< HEAD
-=======
-static DECLARE_WAIT_QUEUE_HEAD(suspend_freeze_wait_head);
-static bool suspend_freeze_wake;
-
 #ifdef CONFIG_QUICK_THAW_FINGERPRINTD
 extern void thaw_fingerprintd(void);
 #endif
 
->>>>>>> f933400... power: PM: Add fingprintd quick resume from OnePlus
 static void freeze_begin(void)
 {
 	suspend_freeze_wake = false;
