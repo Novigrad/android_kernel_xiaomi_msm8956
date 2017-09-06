@@ -17,19 +17,21 @@ GZFLAGS		:=-9
 
 KBUILD_DEFCONFIG := defconfig
 
-ARM_ARCH_OPT := -mcpu=cortex-a72.cortex-a53+crypto
-GEN_OPT_FLAGS := $(call cc-option,$(ARM_ARCH_OPT),-march=armv8-a+crc+crypto) \
--g0 \
--DNDEBUG \
--fomit-frame-pointer \
--fmodulo-sched \
--fmodulo-sched-allow-regmoves \
--fivopts
+# Set optimisation flags for GCC
+DK_CC_FLAGS := -O3 \
+			-g0 \
+			-DNDEBUG \
+			-fomit-frame-pointer \
+			-fmodulo-sched \
+			-fmodulo-sched-allow-regmoves \
+			-fivopts \
+			-mcpu=cortex-a72.cortex-a53+crypto \
+			-mtune=cortex-a72.cortex-a53
 
 KBUILD_CFLAGS	+= -mgeneral-regs-only
 KBUILD_CFLAGS	+= -fno-pic
 KBUILD_CFLAGS	+= $(call cc-option, -mpc-relative-literal-loads)
-KBUILD_CFLAGS	+= $(GEN_OPT_FLAGS)
+KBUILD_CFLAGS	+= $(DK_CC_FLAGS)
 KBUILD_CFLAGS	+= -fno-asynchronous-unwind-tables
 ifeq ($(CONFIG_CPU_BIG_ENDIAN), y)
 KBUILD_CPPFLAGS	+= -mbig-endian
