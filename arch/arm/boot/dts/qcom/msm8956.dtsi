@@ -390,7 +390,7 @@
 	cpubw: qcom,cpubw {
 		label = "cpubw";
 		compatible = "qcom,devbw";
-		governor = "cpufreq";
+		governor = "performance";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
@@ -408,7 +408,7 @@
 	mincpubw: qcom,mincpubw {
 		label = "mincpubw";
 		compatible = "qcom,devbw";
-		governor = "cpufreq";
+		governor = "powersave";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
@@ -882,7 +882,7 @@
 
 		msm_thermal_freq: qcom,vdd-apps-rstr {
 			qcom,vdd-rstr-reg = "vdd-apps";
-			qcom,levels = <1017600>;
+			qcom,levels = <1190400>;
 			qcom,freq-req;
 		};
 	};
