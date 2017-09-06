@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 3.10.107-Darkness_\(Bobs_\&_Vegans\) Kernel Configuration
+# Linux/arm64 3.10.107-Bobs_and_Vegans Kernel Configuration
 #
 CONFIG_ARM64=y
 CONFIG_64BIT=y
@@ -462,7 +462,6 @@ CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y
 CONFIG_CPU_PM=y
 CONFIG_SUSPEND_TIME=y
 CONFIG_QUICK_WAKEUP=y
-CONFIG_QUICK_THAW_FINGERPRINTD=y
 CONFIG_ARCH_SUSPEND_POSSIBLE=y
 CONFIG_ARM64_CPU_SUSPEND=y
 
