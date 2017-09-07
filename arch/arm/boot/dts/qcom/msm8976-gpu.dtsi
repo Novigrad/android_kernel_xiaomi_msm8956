@@ -18,7 +18,6 @@
 
 	/* Bus governor */
 	gpubw: qcom,gpubw {
-		label = "gpubw";
 		compatible = "qcom,devbw";
 		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
