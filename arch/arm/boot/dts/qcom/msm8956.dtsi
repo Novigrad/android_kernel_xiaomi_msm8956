@@ -22,7 +22,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "boot_cpus=0-3,4-5 sched_enable_hmp=1 sched_enable_power_aware=1";
+		bootargs = "boot_cpus=0,1,2,3,4,5 sched_enable_hmp=1 sched_enable_power_aware=1";
 	};
 
 	aliases {
@@ -237,7 +237,8 @@
 			< 432000000   6 >,  /* NOM       */
 			< 480000000   7 >,  /* Turbo     */
 			< 550000000   8 >,  /* Super Turbo */
-			< 600000000   9 >;  /* Super Turbo */
+			< 600000000   9 >,  /* Super Turbo */
+			< 621330000   9 >;  /* Super Turbo */
 		#clock-cells = <1>;
 	};
 
@@ -327,7 +328,9 @@
 			< 1382400000 4>,
 			< 1612800000 5>,
 			< 1747200000 6>,
-			< 1804800000 7>;
+			< 1804800000 7>,
+			< 1958400000 8>,
+			< 2016000000 9>;
 		qcom,speed0-bin-v0-cci =
 			<          0 0>,
 			<  307200000 1>,
@@ -354,7 +357,9 @@
 			< 1382400000 4>,
 			< 1612800000 5>,
 			< 1747200000 6>,
-			< 1804800000 7>;
+			< 1804800000 7>,
+			< 1958400000 8>,
+			< 2016000000 9>;
 		qcom,speed1-bin-v0-cci =
 			<          0 0>,
 			<  307200000 1>,
@@ -390,7 +395,7 @@
 	cpubw: qcom,cpubw {
 		label = "cpubw";
 		compatible = "qcom,devbw";
-		governor = "performance";
+		governor = "cpufreq";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
@@ -408,7 +413,7 @@
 	mincpubw: qcom,mincpubw {
 		label = "mincpubw";
 		compatible = "qcom,devbw";
-		governor = "powersave";
+		governor = "cpufreq";
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
@@ -430,7 +435,6 @@
 		reg-names = "base", "global_base";
 		interrupts = <0 183 4>;
 		qcom,mport = <0>;
-		qcom,hw-timer-hz = <19200000>;
 		qcom,target-dev = <&cpubw>;
 	};
 
@@ -503,7 +507,7 @@
 				< 1190400  4101 >,	/* SVS+  */
 				< 1382400  5712 >,	/* NOM   */
 				< 1612800  6152 >,	/* TURBO */
-				< 1804800  7104 >;
+				< 2016000  7104 >;
 		};
 
 		mincpubw-cpufreq {
@@ -531,7 +535,7 @@
 				< 1190400 403200 >,
 				< 1382400 441600 >,
 				< 1612800 556800 >,
-				< 1804800 614400 >;
+				< 2016000 614400 >;
 		};
 	};
 
@@ -570,7 +574,9 @@
 			< 1382400 >,
 			< 1612800 >,
 			< 1747200 >,
-			< 1804800 >;
+			< 1804800 >,
+			< 1958400 >,
+			< 2016000 >;
 	};
 
 	timer {
@@ -836,11 +842,11 @@
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <9>;
-		qcom,poll-ms = <100>;
-		qcom,limit-temp = <50>;
-		qcom,temp-hysteresis = <100>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
-		qcom,core-limit-temp = <60>;
+		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,mitigation-profile-enable;
 		qcom,hotplug-temp = <105>;
@@ -1062,6 +1068,7 @@
 		reg-names = "hc_mem", "core_mem";
 
 		qcom,bus-width = <4>;
+		qcom,large-address-bus;
 		gpios = <&msm_gpio 44 0>, /* CLK */
 			<&msm_gpio 43 0>, /* CMD */
 			<&msm_gpio 42 0>, /* DATA0 */
@@ -1322,12 +1329,13 @@
 				"xo";
 		qcom,bus-clk-rate = <320000000 200000000 100000000>;
 		qcom,max-nominal-sysclk-rate = <133330000>;
+		qcom,max-svs-sysclk-rate = <100000000>;
+		qcom,pm-qos-latency = <59>;
 	};
 
 	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
-		qcom,pm-qos-latency = <2 1001 12701>;
 	};
 
 	fsusb: qcom,ehci-host@79c0000 {
@@ -1377,7 +1385,6 @@
 		qcom,ignore-core-reset-ack;
 		qcom,disable-clk-gating;
 		qcom,usb-bam-max-mbps-highspeed = <400>;
-		qcom,enable-hsusb-bam-on-boot;
 
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
@@ -1553,8 +1560,8 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <20000>;
-		qcom,pet-time = <15000>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 	};
 
@@ -1622,6 +1629,8 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,use-sw-aead-algo;
 		qcom,ce-opp-freq = <100000000>;
 	};
 
