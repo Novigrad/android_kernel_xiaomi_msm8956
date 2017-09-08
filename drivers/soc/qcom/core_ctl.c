@@ -740,7 +740,7 @@ static void __ref do_hotplug(struct cpu_data *f)
 				break;
 
 			/* Don't offline busy CPUs. */
-			if (c->is_busy || c->not_preferred)
+			if (c->is_busy)
 				continue;
 
 			pr_debug("Trying to Offline CPU%u\n", c->cpu);
