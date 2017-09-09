@@ -1,7 +1,7 @@
 VERSION = 3
 PATCHLEVEL = 10
 SUBLEVEL = 107
-EXTRAVERSION = -Darkness-Remix
+EXTRAVERSION = -Darkness_\(Bobs_\&_Vegans\)
 NAME = TOSSUG Baby Fish
 
 # *DOCUMENTATION*
