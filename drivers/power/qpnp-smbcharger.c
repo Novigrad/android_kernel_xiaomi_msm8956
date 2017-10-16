@@ -1016,7 +1016,8 @@ static int get_property_from_fg(struct smbchg_chip *chip,
 }
 
 static int get_prop_batt_voltage_now(struct smbchg_chip *chip);
-#define DEFAULT_BATT_CAPACITY	1
+#define DEFAULT_BATT_CAPACITY	50
+#define DEFAULT_BATT_VOLTAGE_MAX	4200000
 static int get_prop_batt_capacity(struct smbchg_chip *chip)
 {
 	int capacity, rc;
@@ -1032,13 +1033,13 @@ static int get_prop_batt_capacity(struct smbchg_chip *chip)
 
 	if (is_usb_present(chip)
 			&& (POWER_SUPPLY_STATUS_FULL == get_prop_batt_status(chip))
-			&& get_prop_batt_voltage_now(chip) > 4400000)
+			&& get_prop_batt_voltage_now(chip) > DEFAULT_BATT_VOLTAGE_MAX)
 		capacity = 100;
 
 	return capacity;
 }
 
-#define DEFAULT_BATT_TEMP		-200
+#define DEFAULT_BATT_TEMP		200
 static int get_prop_batt_temp(struct smbchg_chip *chip)
 {
 	int temp, rc;
@@ -1054,11 +1055,7 @@ static int get_prop_batt_temp(struct smbchg_chip *chip)
 	return temp;
 }
 
-#ifdef CONFIG_MACH_XIAOMI_KENZO
-#define DEFAULT_BATT_CAPACITY_FULL	4050000
-#else
-#define DEFAULT_BATT_CAPACITY_FULL	4850000
-#endif
+#define DEFAULT_BATT_CAPACITY_FULL	4000000
 static int get_prop_batt_capacity_full(struct smbchg_chip *chip)
 {
 	int uah, rc;
@@ -5513,6 +5510,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_SAFETY_TIMER_ENABLE,
@@ -5911,6 +5909,7 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = get_prop_batt_temp(chip);
 		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = get_prop_batt_capacity_full(chip);
 		break;
