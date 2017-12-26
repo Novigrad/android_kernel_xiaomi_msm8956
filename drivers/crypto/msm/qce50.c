@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -235,8 +235,8 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	pce_dev->ce_sps.ce_burst_size = MAX_CE_BAM_BURST_SIZE;
 
 	dev_info(pce_dev->pdev,
-			"CE device = 0x%x\n, "
-			"IO base, CE = 0x%pK\n, "
+			"CE device = 0x%x\n"
+			"IO base, CE = 0x%pK\n"
 			"Consumer (IN) PIPE %d,    "
 			"Producer (OUT) PIPE %d\n"
 			"IO base BAM = 0x%pK\n"
@@ -2761,7 +2761,7 @@ static void qce_sps_exit(struct qce_device *pce_dev)
 
 static void print_notify_debug(struct sps_event_notify *notify)
 {
-	phys_addr_t addr = DESC_FULL_ADDR(notify->data.transfer.iovec.flags,
+phys_addr_t addr = DESC_FULL_ADDR(notify->data.transfer.iovec.flags,
 					  notify->data.transfer.iovec.addr);
 	pr_debug("sps ev_id=%d, addr=0x%pa, size=0x%x, flags=0x%x user=0x%pK\n",
 			notify->event_id, &addr,
